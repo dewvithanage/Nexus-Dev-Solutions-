@@ -1,0 +1,3 @@
+DATABASE_URL="postgresql://postgres:Dew%400322@localhost:5432/startup_spark"
+JWT_SECRET="sjp-startup-spark-2026-secret-key"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"

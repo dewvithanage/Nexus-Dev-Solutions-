@@ -1,6 +1,5 @@
 {
   "name": "startup-spark",
-  "type": "module",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,27 +7,32 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma skills sync || exit 0",
-    "contract:emit": "prisma contract emit"
+    "seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^7.10.0",
-    "@prisma/orm-postgres": "^8.0.0-rc.8",
+    "@prisma/client": "^6.19.3",
     "bcryptjs": "^3.0.3",
-    "dotenv": "^17.4.2",
-    "lucide-react": "^1.34.0",
-    "next": "16.3.3",
-    "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "jose": "^5.9.6",
+    "lucide-react": "^0.470.0",
+    "next": "15.1.4",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@prisma/cli-engine": "^0.2.3",
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^26.4.0",
-    "@types/react": "19.2.18",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.3",
-    "prisma": "^8.0.0-rc.10",
-    "tailwindcss": "^4"
+    "eslint-config-next": "15.1.4",
+    "prisma": "^6.3.0",
+    "tailwindcss": "^4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
   }
 }

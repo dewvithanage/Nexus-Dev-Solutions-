@@ -1,17 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import Input from "../ui/Input";
 import Button from "../ui/Button";
 
-// Registration form for entrepreneurs
+type RegisterFormData = {
+  fullName: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  password: string;
+};
+
 export default function EntrepreneurRegisterForm() {
   const router = useRouter();
 
-  // Stores form values
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<RegisterFormData>({
     fullName: "",
     email: "",
     phone: "",
@@ -19,34 +25,19 @@ export default function EntrepreneurRegisterForm() {
     password: "",
   });
 
-  // Stores error messages
   const [error, setError] = useState("");
-
-  // Stores loading state
   const [loading, setLoading] = useState(false);
 
-  // Updates form data when user types
-  function handleChange(event) {
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
-
-    setFormData((previousData) => ({
-      ...previousData,
-      [name]: value,
-    }));
+    setFormData((previousData) => ({ ...previousData, [name]: value }));
   }
 
-  // Handles registration form submission
-  async function handleSubmit(event) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     setError("");
 
-    // Simple frontend validation
-    if (
-      !formData.fullName ||
-      !formData.email ||
-      !formData.password
-    ) {
+    if (!formData.fullName || !formData.email || !formData.password) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -54,12 +45,9 @@ export default function EntrepreneurRegisterForm() {
     try {
       setLoading(true);
 
-      // Send registration details to the API
       const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
@@ -70,9 +58,9 @@ export default function EntrepreneurRegisterForm() {
         return;
       }
 
-      // Go to login page after successful registration
       router.push("/entrepreneur/login");
     } catch (error) {
+      console.error("Registration request error:", error);
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
@@ -81,7 +69,6 @@ export default function EntrepreneurRegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-
       <Input
         label="Full Name"
         name="fullName"
@@ -124,18 +111,9 @@ export default function EntrepreneurRegisterForm() {
         onChange={handleChange}
       />
 
-      {/* Error message */}
-      {error && (
-        <p className="text-sm text-red-500">
-          {error}
-        </p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
 
-      {/* Register button */}
-      <Button type="submit">
-        {loading ? "Registering..." : "Register"}
-      </Button>
-
+      <Button type="submit">{loading ? "Registering..." : "Register"}</Button>
     </form>
   );
 }
