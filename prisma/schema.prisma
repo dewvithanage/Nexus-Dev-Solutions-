@@ -1,27 +1,280 @@
-// use prisma-next
+// Startup Spark — shared database schema
+// This is the ONE schema.prisma for the whole team. Do not fork it per-branch.
 
-model Entrepreneur {
-  id           Int      @id @default(autoincrement())
-  fullName     String
-  email        String   @unique
-  password     String
-  phone        String?
-  businessName String?
-  status       String   @default("PENDING")
-  createdAt    TimestamptzString @default(now())
-  updatedAt    temporal.updatedAtString()
+generator client {
+  provider = "prisma-client-js"
 }
 
-// Stores products added by entrepreneurs
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  ENTREPRENEUR
+  ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ProductStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  AWAITING_FULFILLMENT
+  PENDING_VERIFICATION
+  VERIFIED
+  FLAGGED
+  CANCELLED
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  FLAGGED
+}
+
+// ==========================================
+// USERS & AUTH (Entrepreneurs + Admins only — customers are guests)
+// ==========================================
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  entrepreneurProfile EntrepreneurProfile?
+  notifications       Notification[]
+
+  reviewedEntrepreneurs EntrepreneurProfile[] @relation("EntrepreneurReviewedBy")
+  reviewedProducts      Product[]             @relation("ProductReviewedBy")
+  verifiedSales         SalesConfirmation[]   @relation("SalesVerifiedBy")
+  galleryItems          GalleryItem[]         @relation("GalleryUploadedBy")
+  contentEdits          ContentBlock[]        @relation("ContentUpdatedBy")
+
+  @@index([role])
+}
+
+model EntrepreneurProfile {
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id])
+
+  university      String?
+  studentId       String?
+  bio             String?
+  whatsappNumber  String
+
+  status          ApprovalStatus @default(PENDING)
+  rejectionReason String?
+  appliedAt       DateTime       @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewedBy      User?          @relation("EntrepreneurReviewedBy", fields: [reviewedById], references: [id])
+
+  business        Business?
+
+  @@index([status])
+}
+
+model Business {
+  id                    String              @id @default(cuid())
+  entrepreneurProfileId String              @unique
+  entrepreneurProfile   EntrepreneurProfile @relation(fields: [entrepreneurProfileId], references: [id])
+
+  businessName          String
+  description           String?
+  logoUrl               String?
+
+  products              Product[]
+  orders                Order[]
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+// ==========================================
+// CATEGORIES & PRODUCTS
+// ==========================================
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  icon      String?
+  products  Product[]
+  createdAt DateTime  @default(now())
+}
+
 model Product {
-  id             Int      @id @default(autoincrement())
-  entrepreneurId Int
-  name           String
-  category       String
-  description    String?
-  price          Float
-  quantity       Int
-  status         String   @default("PENDING")
-  createdAt      TimestamptzString @default(now())
-  updatedAt      temporal.updatedAtString()
+  id              String         @id @default(cuid())
+  businessId      String
+  business        Business       @relation(fields: [businessId], references: [id])
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id])
+
+  name            String
+  description     String
+  price           Decimal        @db.Decimal(10, 2)
+  stockQuantity   Int            @default(0)
+  tags            String[]       @default([])
+
+  onCampusPickup  Boolean        @default(false)
+  areaDropOff     Boolean        @default(false)
+  postingEnabled  Boolean        @default(false)
+
+  status          ProductStatus  @default(PENDING)
+  rejectionReason String?
+  reviewedById    String?
+  reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt      DateTime?
+
+  images          ProductImage[]
+  orderItems      OrderItem[]
+  reviews         Review[]
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status])
+  @@index([categoryId])
+  @@index([businessId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int     @default(0)
+}
+
+// ==========================================
+// ORDERS (guest customers)
+// ==========================================
+
+model Order {
+  id                    String              @id @default(cuid())
+  businessId            String
+  business              Business            @relation(fields: [businessId], references: [id])
+
+  buyerName             String
+  buyerPhone            String
+  deliveryLocation      String
+  messageToEntrepreneur String?
+
+  totalAmount           Decimal             @db.Decimal(10, 2)
+  status                OrderStatus         @default(PENDING)
+
+  items                 OrderItem[]
+  salesConfirmation     SalesConfirmation?
+
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model OrderItem {
+  id               String  @id @default(cuid())
+  orderId          String
+  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product @relation(fields: [productId], references: [id])
+  quantity         Int
+  unitPriceAtOrder Decimal @db.Decimal(10, 2)
+}
+
+model SalesConfirmation {
+  id                 String              @id @default(cuid())
+  orderId            String              @unique
+  order              Order               @relation(fields: [orderId], references: [id])
+
+  proofImageUrl      String
+  deliveryDate       DateTime
+  notes              String?
+
+  verificationStatus VerificationStatus  @default(PENDING)
+  verifiedById       String?
+  verifiedBy         User?               @relation("SalesVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt         DateTime?
+
+  createdAt          DateTime            @default(now())
+}
+
+// ==========================================
+// REVIEWS (guest reviewer)
+// ==========================================
+
+model Review {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id])
+  reviewerName String
+  rating       Int
+  comment      String
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
+}
+
+// ==========================================
+// NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  type              String
+  title             String
+  message           String
+  isRead            Boolean  @default(false)
+  relatedEntityType String?
+  relatedEntityId   String?
+  createdAt         DateTime @default(now())
+
+  @@index([userId, isRead])
+}
+
+// ==========================================
+// GALLERY & CONTENT (Admin-managed)
+// ==========================================
+
+model GalleryItem {
+  id           String   @id @default(cuid())
+  imageUrl     String
+  caption      String?
+  uploadedById String
+  uploadedBy   User     @relation("GalleryUploadedBy", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model ContentBlock {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String?
+  body        String
+  updatedById String
+  updatedBy   User     @relation("ContentUpdatedBy", fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt
 }
