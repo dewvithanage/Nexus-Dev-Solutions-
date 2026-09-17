@@ -58,6 +58,8 @@ model User {
   role         UserRole
   name         String
   phone        String?
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -103,6 +105,11 @@ model Business {
   businessName          String
   description           String?
   logoUrl               String?
+  businessCategory      String?
+  instagramHandle       String?
+  websiteUrl            String?
+  businessHours         String?
+  pickupLocationNotes   String?
 
   products              Product[]
   orders                Order[]
