@@ -82,6 +82,25 @@ export async function POST(request: NextRequest) {
       },
     });
 
+ Himasha
+    // Notify every admin that a new registration needs review — this is
+    // what populates the "Registrations" tab on Admin Notifications.
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          type: "REGISTRATION",
+          title: "New Entrepreneur Registration",
+          message: `${fullName} (${businessName || "unnamed business"}) has applied and needs review.`,
+          relatedEntityType: "EntrepreneurProfile",
+          relatedEntityId: user.entrepreneurProfile?.id,
+        })),
+      });
+    }
+
+=======
+ Dev
     return NextResponse.json(
       {
         message: "Registration successful. Your account is pending admin approval.",
