@@ -123,12 +123,22 @@ model Business {
 // ==========================================
 
 model Category {
+ Himasha
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  icon        String?
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+
   id        String    @id @default(cuid())
   name      String    @unique
   slug      String    @unique
   icon      String?
   products  Product[]
   createdAt DateTime  @default(now())
+ Dev
 }
 
 model Product {

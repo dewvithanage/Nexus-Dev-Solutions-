@@ -88,9 +88,46 @@ async function main() {
     },
   });
 
+ Himasha
+  // Real photo for the demo product (uploaded by the team), so the
+  // Home page's "Trending Innovations" section has something real to
+  // show instead of an empty box.
+  const existingDemoImage = await prisma.productImage.findFirst({
+    where: { productId: demoProduct.id },
+  });
+  if (!existingDemoImage) {
+    await prisma.productImage.create({
+      data: {
+        productId: demoProduct.id,
+        url: "/uploads/products/demo-cardigan.png",
+        sortOrder: 0,
+      },
+    });
+  }
+
+  // A demo review — "Trending" only shows products with a 4+ star
+  // average, so without at least one good review the demo product
+  // would never actually appear there.
+  const existingDemoReview = await prisma.review.findFirst({
+    where: { productId: demoProduct.id },
+  });
+  if (!existingDemoReview) {
+    await prisma.review.create({
+      data: {
+        productId: demoProduct.id,
+        reviewerName: "Sithu De Silva",
+        rating: 5,
+        comment: "This sweater is literally the softest thing I own. Picked it up right outside the campus library.",
+      },
+    });
+  }
+
+  // ---------------------------------------------------------------
+
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+ Dev
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
@@ -109,6 +146,13 @@ async function main() {
   });
 
   console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
+ Himasha
+
+  console.log(`Demo data ready. Test with:`);
+  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
+  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+
+ Dev
 }
 
 main()
