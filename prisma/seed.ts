@@ -91,6 +91,24 @@ async function main() {
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+  // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
+  // screens (admins aren't meant to self-sign-up), so we create the
+  // first admin account here instead. Log in with these at /admin/login.
+  // ---------------------------------------------------------------
+  const adminPasswordHash = await bcrypt.hash("Admin@1234", 10);
+
+  await prisma.user.upsert({
+    where: { email: "admin@startupspark.lk" },
+    update: {},
+    create: {
+      email: "admin@startupspark.lk",
+      passwordHash: adminPasswordHash,
+      role: "ADMIN",
+      name: "Super Admin",
+    },
+  });
+
+  console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
 }
 
 main()

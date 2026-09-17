@@ -105,6 +105,11 @@ model Business {
   businessName          String
   description           String?
   logoUrl               String?
+  businessCategory      String?
+  instagramHandle       String?
+  websiteUrl            String?
+  businessHours         String?
+  pickupLocationNotes   String?
 
   products              Product[]
   orders                Order[]
@@ -145,6 +150,7 @@ model Product {
 
   status          ProductStatus  @default(PENDING)
   rejectionReason String?
+  adminNotes      String?
   reviewedById    String?
   reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?
