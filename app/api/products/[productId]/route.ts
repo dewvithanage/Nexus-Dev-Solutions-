@@ -17,6 +17,10 @@ export async function GET(
       include: {
         category: true,
         images: true,
+<<<<<<< Updated upstream
+=======
+        reviews: true,
+>>>>>>> Stashed changes
         business: {
           include: { entrepreneurProfile: { include: { user: true } } },
         },
@@ -27,7 +31,22 @@ export async function GET(
       return NextResponse.json({ message: "Product not found." }, { status: 404 });
     }
 
+<<<<<<< Updated upstream
     return NextResponse.json({ product });
+=======
+    const averageRating =
+      product.reviews.length > 0
+        ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
+        : null;
+
+    return NextResponse.json({
+      product: {
+        ...product,
+        averageRating: averageRating ? Number(averageRating.toFixed(1)) : null,
+        reviewCount: product.reviews.length,
+      },
+    });
+>>>>>>> Stashed changes
   } catch (error) {
     console.error("Get product error:", error);
     return NextResponse.json({ message: "Unable to load product." }, { status: 500 });
