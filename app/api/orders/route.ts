@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+<<<<<<< Updated upstream
     // Notify the entrepreneur that owns this business — this is what
     // populates their Notification Center ("New WhatsApp Coordination
     // Inquiry" style entries in the Figma).
@@ -92,6 +93,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
+=======
+>>>>>>> Stashed changes
     return NextResponse.json({ message: "Order created.", orderId: order.id }, { status: 201 });
   } catch (error) {
     console.error("Create order error:", error);
