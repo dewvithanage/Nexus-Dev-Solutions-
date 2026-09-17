@@ -7,9 +7,6 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Defense in depth: middleware.ts already blocks non-admins from
-    // reaching this route, but we check again here so this file is safe
-    // on its own even if middleware config ever changes.
     const admin = await getCurrentUser();
     if (!admin || admin.role !== "ADMIN") {
       return NextResponse.json({ message: "Forbidden." }, { status: 403 });
@@ -24,6 +21,19 @@ export async function PATCH(
         reviewedAt: new Date(),
         reviewedById: admin.id,
         rejectionReason: null,
+      },
+    });
+
+    // Notify the entrepreneur — this is what makes their Notification
+    // Center actually show something when an admin acts on their account.
+    await prisma.notification.create({
+      data: {
+        userId: entrepreneur.userId,
+        type: "SYSTEM",
+        title: "Your Registration Has Been Approved!",
+        message: "You can now add products and start selling on StartupSpark.",
+        relatedEntityType: "EntrepreneurProfile",
+        relatedEntityId: entrepreneur.id,
       },
     });
 

@@ -26,6 +26,19 @@ export async function PATCH(
       },
     });
 
+    await prisma.notification.create({
+      data: {
+        userId: entrepreneur.userId,
+        type: "SYSTEM",
+        title: "Registration Application Update",
+        message: rejectionReason
+          ? `Your application was not approved: ${rejectionReason}`
+          : "Your application was not approved this time.",
+        relatedEntityType: "EntrepreneurProfile",
+        relatedEntityId: entrepreneur.id,
+      },
+    });
+
     return NextResponse.json({ message: "Entrepreneur rejected.", entrepreneur });
   } catch (error) {
     console.error("Reject entrepreneur error:", error);

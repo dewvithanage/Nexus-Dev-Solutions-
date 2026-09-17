@@ -24,6 +24,22 @@ export async function PATCH(
         reviewedById: admin.id,
         rejectionReason,
       },
+      include: {
+        business: { include: { entrepreneurProfile: true } },
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: product.business.entrepreneurProfile.userId,
+        type: "PRODUCT",
+        title: "Product Submission Rejected",
+        message: rejectionReason
+          ? `"${product.name}" was not approved: ${rejectionReason}`
+          : `"${product.name}" was not approved this time.`,
+        relatedEntityType: "Product",
+        relatedEntityId: product.id,
+      },
     });
 
     return NextResponse.json({ message: "Product rejected.", product });
