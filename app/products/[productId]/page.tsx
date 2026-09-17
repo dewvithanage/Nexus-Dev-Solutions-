@@ -179,10 +179,14 @@ export default function ProductDetailsPage() {
 
             <h1 className="mt-2 text-2xl font-bold text-slate-900">{product.name}</h1>
             <p className="mt-1 text-sm text-slate-500">
+<<<<<<< Updated upstream
               Created by{" "}
               <Link href={`/business/${product.business.id}`} className="font-medium text-blue-600 hover:underline">
                 {product.business.businessName}
               </Link>
+=======
+              Created by <span className="font-medium text-slate-700">{product.business.businessName}</span>
+>>>>>>> Stashed changes
             </p>
 
             <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
