@@ -3,9 +3,6 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Categories from the approved Figma design (Home page "Featured Categories").
-// These are the only categories that exist until an admin adds more via
-// Category Management (Himasha's page).
 const categories = [
   { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
   { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
@@ -16,10 +13,6 @@ const categories = [
 ];
 
 async function main() {
-  // Insert the 6 categories above. "upsert" means: if a category with
-  // this slug already exists, leave it alone; otherwise create it. This
-  // makes it safe to run this seed script over and over without making
-  // duplicate categories every time.
   for (const category of categories) {
     await prisma.category.upsert({
       where: { slug: category.slug },
@@ -30,24 +23,11 @@ async function main() {
 
   console.log(`Seeded ${categories.length} categories.`);
 
-  // ---------------------------------------------------------------
-  // DEMO ENTREPRENEUR + DEMO ORDER
-  // This gives the team a real, working example to test against —
-  // login credentials, an approved product, and a placed order —
-  // without needing to manually register and get approved every time
-  // someone sets up the project fresh.
-  // ---------------------------------------------------------------
-
   const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
-  if (!demoCategory) return; // Safety check: don't continue if seeding categories somehow failed.
+  if (!demoCategory) return;
 
-  // Never store a plain-text password — hash it the same way the real
-  // registration API does.
   const demoPasswordHash = await bcrypt.hash("Demo@1234", 10);
 
-  // Creates one entrepreneur account, already APPROVED (skips the usual
-  // admin approval step, since this is just test data, not a real
-  // registration going through the real flow).
   const demoUser = await prisma.user.upsert({
     where: { email: "demo.entrepreneur@fhss.sjp.ac.lk" },
     update: {},
@@ -65,15 +45,12 @@ async function main() {
         },
       },
     },
-    // We need the business's id further down, so ask Prisma to include
-    // it in what gets returned here.
     include: { entrepreneurProfile: { include: { business: true } } },
   });
 
   const business = demoUser.entrepreneurProfile?.business;
   if (!business) return;
 
-  // One approved demo product belonging to that business.
   const demoProduct = await prisma.product.upsert({
     where: { id: "demo-product-cardigan" },
     update: {},
@@ -91,9 +68,6 @@ async function main() {
     },
   });
 
-  // One demo order for that product — lets anyone test the WhatsApp
-  // Confirmation page and the Sales/Orders pages without having to
-  // place a real order through the actual checkout flow first.
   const demoOrder = await prisma.order.upsert({
     where: { id: "demo-order-1024" },
     update: {},
@@ -108,10 +82,10 @@ async function main() {
     },
   });
 
-  // Attach the real cardigan photo (provided by the team) to the demo
-  // product, so it's not just a blank box on the Home/Marketplace pages.
-  // The "if not already there" check stops this from adding a duplicate
-  // image every time the seed script is re-run.
+  // NOTE: demo images now live in /public/images/ (NOT /public/uploads/),
+  // because /public/uploads/ is gitignored (it's meant for real user
+  // uploads, not permanent project assets) — these demo photos need to
+  // actually be committed to the repo so the whole team sees them.
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -119,15 +93,17 @@ async function main() {
     await prisma.productImage.create({
       data: {
         productId: demoProduct.id,
-        url: "/uploads/products/demo-cardigan.png",
+        url: "/images/demo-cardigan.png",
         sortOrder: 0,
       },
     });
+  } else {
+    await prisma.productImage.updateMany({
+      where: { productId: demoProduct.id },
+      data: { url: "/images/demo-cardigan.png" },
+    });
   }
 
-  // A 5-star review — "Trending Innovations" on the Home page only shows
-  // products with a 4+ star average, so without at least one good review
-  // this product would never actually show up there.
   const existingDemoReview = await prisma.review.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -142,14 +118,6 @@ async function main() {
     });
   }
 
-  // ---------------------------------------------------------------
-  // 3 MORE DEMO PRODUCTS
-  // Added so "Trending Innovations" on the Home page shows more than
-  // just one item — each needs to be APPROVED and have a good review to
-  // actually qualify for that section (same rule as the cardigan above).
-  // None of these have photos yet, so they'll show a plain placeholder
-  // box on the site until real images are uploaded for them.
-  // ---------------------------------------------------------------
   const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
   const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
   const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
@@ -161,6 +129,7 @@ async function main() {
       description: "An AI-powered study planner that organizes your syllabus into a daily schedule.",
       price: 1200,
       category: techCategory,
+      imageUrl: "/images/demo-planner.png",
       reviewerName: "Andiana",
       rating: 5,
       comment: "This planner completely changed how I study for exams!",
@@ -171,6 +140,7 @@ async function main() {
       description: "Handmade matcha cookies baked fresh daily using ceremonial grade green tea.",
       price: 270,
       category: foodCategory,
+      imageUrl: "/images/demo-cookies.png",
       reviewerName: "Ishini Perera",
       rating: 5,
       comment: "Best cookies on campus, hands down.",
@@ -181,17 +151,14 @@ async function main() {
       description: "A hand-painted watercolor portrait of your pet, made to order.",
       price: 700,
       category: artCategory,
+      imageUrl: "/images/demo-portrait.png",
       reviewerName: "Sandun Dissanayake",
       rating: 4,
       comment: "Beautiful work, captured my dog perfectly.",
     },
   ];
 
-  // Loop through and create each one, same upsert pattern as above so
-  // re-running this script never creates duplicates.
   for (const item of extraProducts) {
-    // Skip silently if a category is somehow missing — shouldn't happen
-    // since the categories are seeded first, but this avoids a crash.
     if (!item.category) continue;
 
     await prisma.product.upsert({
@@ -220,6 +187,18 @@ async function main() {
         },
       });
     }
+
+    const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
+    if (!existingImage) {
+      await prisma.productImage.create({
+        data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
+      });
+    } else {
+      await prisma.productImage.updateMany({
+        where: { productId: item.id },
+        data: { url: item.imageUrl },
+      });
+    }
   }
 
   console.log(`Demo data ready. Test with:`);
@@ -233,7 +212,10 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    // Always close the database connection when the script finishes,
-    // whether it succeeded or failed.
     await prisma.$disconnect();
   });
+
+
+
+
+  
