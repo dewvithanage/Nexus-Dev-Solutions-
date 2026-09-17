@@ -58,6 +58,8 @@ model User {
   role         UserRole
   name         String
   phone        String?
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -103,6 +105,11 @@ model Business {
   businessName          String
   description           String?
   logoUrl               String?
+  businessCategory      String?
+  instagramHandle       String?
+  websiteUrl            String?
+  businessHours         String?
+  pickupLocationNotes   String?
 
   products              Product[]
   orders                Order[]
@@ -116,12 +123,22 @@ model Business {
 // ==========================================
 
 model Category {
+ Himasha
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  icon        String?
+  description String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+
   id        String    @id @default(cuid())
   name      String    @unique
   slug      String    @unique
   icon      String?
   products  Product[]
   createdAt DateTime  @default(now())
+ Dev
 }
 
 model Product {

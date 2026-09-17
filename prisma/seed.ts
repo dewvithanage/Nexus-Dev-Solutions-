@@ -86,6 +86,10 @@ async function main() {
   // because /public/uploads/ is gitignored (it's meant for real user
   // uploads, not permanent project assets) — these demo photos need to
   // actually be committed to the repo so the whole team sees them.
+ Himasha
+  // Real photo for the demo product (uploaded by the team), so the
+  // Home page's "Trending Innovations" section has something real to
+  // show instead of an empty box.
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -104,6 +108,15 @@ async function main() {
     });
   }
 
+        url: "/uploads/products/demo-cardigan.png",
+        sortOrder: 0,
+      },
+    });
+  }
+
+  // A demo review — "Trending" only shows products with a 4+ star
+  // average, so without at least one good review the demo product
+  // would never actually appear there.
   const existingDemoReview = await prisma.review.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -200,10 +213,37 @@ async function main() {
       });
     }
   }
+  // ---------------------------------------------------------------
 
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+ Dev
+  // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
+  // screens (admins aren't meant to self-sign-up), so we create the
+  // first admin account here instead. Log in with these at /admin/login.
+  // ---------------------------------------------------------------
+  const adminPasswordHash = await bcrypt.hash("Admin@1234", 10);
+
+  await prisma.user.upsert({
+    where: { email: "admin@startupspark.lk" },
+    update: {},
+    create: {
+      email: "admin@startupspark.lk",
+      passwordHash: adminPasswordHash,
+      role: "ADMIN",
+      name: "Super Admin",
+    },
+  });
+
+  console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
+ Himasha
+
+  console.log(`Demo data ready. Test with:`);
+  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
+  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+
+ Dev
 }
 
 main()
