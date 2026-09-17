@@ -22,6 +22,23 @@ export async function PATCH(
         reviewedById: admin.id,
         rejectionReason: null,
       },
+      // Need the business -> entrepreneurProfile -> userId chain since
+      // Product itself doesn't store who owns it directly, only which
+      // business does — this is what lets us know who to notify.
+      include: {
+        business: { include: { entrepreneurProfile: true } },
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: product.business.entrepreneurProfile.userId,
+        type: "PRODUCT",
+        title: "Your Product Has Been Approved!",
+        message: `"${product.name}" was successfully reviewed and is now live in the student catalog.`,
+        relatedEntityType: "Product",
+        relatedEntityId: product.id,
+      },
     });
 
     return NextResponse.json({ message: "Product approved and published.", product });
