@@ -64,6 +64,22 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Notify every admin that a new product needs review — populates the
+    // "Product Alerts" tab on Admin Notifications.
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.id,
+          type: "PRODUCT_ALERT",
+          title: "New Product Awaiting Review",
+          message: `"${name}" was submitted and needs approval.`,
+          relatedEntityType: "Product",
+          relatedEntityId: product.id,
+        })),
+      });
+    }
+
     return NextResponse.json(
       { message: "Product submitted for admin review.", product },
       { status: 201 }
