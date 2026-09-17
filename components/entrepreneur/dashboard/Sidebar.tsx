@@ -8,6 +8,7 @@ import {
   UserRound,
   Package,
   CirclePlus,
+  ListChecks,
   TrendingUp,
   Bell,
   LogOut,
@@ -18,6 +19,7 @@ const menuItems = [
   { name: "Business Profile", href: "/entrepreneur/profile", icon: UserRound },
   { name: "My Products", href: "/entrepreneur/products", icon: Package },
   { name: "Add Product", href: "/entrepreneur/products/add", icon: CirclePlus },
+  { name: "Submission Status", href: "/entrepreneur/products/status", icon: ListChecks },
   { name: "Sales & Orders", href: "/entrepreneur/orders", icon: TrendingUp },
   { name: "Notifications", href: "/entrepreneur/notifications", icon: Bell },
 ];
