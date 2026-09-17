@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Categories from the approved Figma design (Home page "Featured Categories").
 const categories = [
   { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
   { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
@@ -24,11 +23,6 @@ async function main() {
 
   console.log(`Seeded ${categories.length} categories.`);
 
-  // ---------------------------------------------------------------
-  // DEMO DATA — lets the team test Reviews and WhatsApp Confirmation
-  // right away, without waiting for Oshadhi's admin approval pages to
-  // exist yet. Safe to delete later once real approved products exist.
-  // ---------------------------------------------------------------
   const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
   if (!demoCategory) return;
 
@@ -88,6 +82,10 @@ async function main() {
     },
   });
 
+  // NOTE: demo images now live in /public/images/ (NOT /public/uploads/),
+  // because /public/uploads/ is gitignored (it's meant for real user
+  // uploads, not permanent project assets) — these demo photos need to
+  // actually be committed to the repo so the whole team sees them.
  Himasha
   // Real photo for the demo product (uploaded by the team), so the
   // Home page's "Trending Innovations" section has something real to
@@ -99,6 +97,17 @@ async function main() {
     await prisma.productImage.create({
       data: {
         productId: demoProduct.id,
+        url: "/images/demo-cardigan.png",
+        sortOrder: 0,
+      },
+    });
+  } else {
+    await prisma.productImage.updateMany({
+      where: { productId: demoProduct.id },
+      data: { url: "/images/demo-cardigan.png" },
+    });
+  }
+
         url: "/uploads/products/demo-cardigan.png",
         sortOrder: 0,
       },
@@ -122,6 +131,88 @@ async function main() {
     });
   }
 
+  const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
+  const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
+  const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
+
+  const extraProducts = [
+    {
+      id: "demo-product-planner",
+      name: "Syllabus Study Planner AI",
+      description: "An AI-powered study planner that organizes your syllabus into a daily schedule.",
+      price: 1200,
+      category: techCategory,
+      imageUrl: "/images/demo-planner.png",
+      reviewerName: "Andiana",
+      rating: 5,
+      comment: "This planner completely changed how I study for exams!",
+    },
+    {
+      id: "demo-product-cookies",
+      name: "Fresh Matcha Cookies",
+      description: "Handmade matcha cookies baked fresh daily using ceremonial grade green tea.",
+      price: 270,
+      category: foodCategory,
+      imageUrl: "/images/demo-cookies.png",
+      reviewerName: "Ishini Perera",
+      rating: 5,
+      comment: "Best cookies on campus, hands down.",
+    },
+    {
+      id: "demo-product-portrait",
+      name: "Custom Pet Watercolor Portraits",
+      description: "A hand-painted watercolor portrait of your pet, made to order.",
+      price: 700,
+      category: artCategory,
+      imageUrl: "/images/demo-portrait.png",
+      reviewerName: "Sandun Dissanayake",
+      rating: 4,
+      comment: "Beautiful work, captured my dog perfectly.",
+    },
+  ];
+
+  for (const item of extraProducts) {
+    if (!item.category) continue;
+
+    await prisma.product.upsert({
+      where: { id: item.id },
+      update: {},
+      create: {
+        id: item.id,
+        businessId: business.id,
+        categoryId: item.category.id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        stockQuantity: 10,
+        status: "APPROVED",
+      },
+    });
+
+    const existingReview = await prisma.review.findFirst({ where: { productId: item.id } });
+    if (!existingReview) {
+      await prisma.review.create({
+        data: {
+          productId: item.id,
+          reviewerName: item.reviewerName,
+          rating: item.rating,
+          comment: item.comment,
+        },
+      });
+    }
+
+    const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
+    if (!existingImage) {
+      await prisma.productImage.create({
+        data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
+      });
+    } else {
+      await prisma.productImage.updateMany({
+        where: { productId: item.id },
+        data: { url: item.imageUrl },
+      });
+    }
+  }
   // ---------------------------------------------------------------
 
   console.log(`Demo data ready. Test with:`);
@@ -163,3 +254,8 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
+
+
+
+  
