@@ -77,14 +77,21 @@ export default function EntrepreneurRegisterForm() {
         onChange={handleChange}
       />
 
-      <Input
-        label="University Email"
-        name="email"
-        type="email"
-        value={formData.email}
-        placeholder="Enter university email"
-        onChange={handleChange}
-      />
+      <div>
+        <Input
+          label="University Email"
+          name="email"
+          type="email"
+          value={formData.email}
+          placeholder="e.g. ar118533@fhss.sjp.ac.lk"
+          onChange={handleChange}
+        />
+        {/* Client requirement: only FHSS students can register right now
+            — see lib/validation.ts for the exact rule this hint describes. */}
+        <p className="mt-1 text-[11px] text-slate-400">
+          Only FHSS student emails are accepted right now (format: ar123456@fhss.sjp.ac.lk)
+        </p>
+      </div>
 
       <Input
         label="Contact Number"
