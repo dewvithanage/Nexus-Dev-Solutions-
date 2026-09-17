@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -22,6 +23,74 @@ async function main() {
   }
 
   console.log(`Seeded ${categories.length} categories.`);
+
+  // ---------------------------------------------------------------
+  // DEMO DATA — lets the team test Reviews and WhatsApp Confirmation
+  // right away, without waiting for Oshadhi's admin approval pages to
+  // exist yet. Safe to delete later once real approved products exist.
+  // ---------------------------------------------------------------
+  const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
+  if (!demoCategory) return;
+
+  const demoPasswordHash = await bcrypt.hash("Demo@1234", 10);
+
+  const demoUser = await prisma.user.upsert({
+    where: { email: "demo.entrepreneur@fhss.sjp.ac.lk" },
+    update: {},
+    create: {
+      email: "demo.entrepreneur@fhss.sjp.ac.lk",
+      passwordHash: demoPasswordHash,
+      role: "ENTREPRENEUR",
+      name: "Sarah Perera",
+      phone: "+94771234567",
+      entrepreneurProfile: {
+        create: {
+          whatsappNumber: "+94771234567",
+          status: "APPROVED",
+          business: { create: { businessName: "Stanford Wool" } },
+        },
+      },
+    },
+    include: { entrepreneurProfile: { include: { business: true } } },
+  });
+
+  const business = demoUser.entrepreneurProfile?.business;
+  if (!business) return;
+
+  const demoProduct = await prisma.product.upsert({
+    where: { id: "demo-product-cardigan" },
+    update: {},
+    create: {
+      id: "demo-product-cardigan",
+      businessId: business.id,
+      categoryId: demoCategory.id,
+      name: "Hand-Knitted Wool Cardigan",
+      description:
+        "Every cardigan is crafted with 100% natural merino wool. Cozy, durable, and designed with premium cable stitch pattern.",
+      price: 1500,
+      stockQuantity: 10,
+      onCampusPickup: true,
+      status: "APPROVED",
+    },
+  });
+
+  const demoOrder = await prisma.order.upsert({
+    where: { id: "demo-order-1024" },
+    update: {},
+    create: {
+      id: "demo-order-1024",
+      businessId: business.id,
+      buyerName: "Imesha Hansani",
+      buyerPhone: "+94770001111",
+      deliveryLocation: "Stanford Green Library main entrance",
+      totalAmount: 1500,
+      items: { create: { productId: demoProduct.id, quantity: 1, unitPriceAtOrder: 1500 } },
+    },
+  });
+
+  console.log(`Demo data ready. Test with:`);
+  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
+  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
 }
 
 main()
