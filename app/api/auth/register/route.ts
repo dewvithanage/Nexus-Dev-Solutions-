@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+ Himasha
     // Notify every admin that a new registration needs review — this is
     // what populates the "Registrations" tab on Admin Notifications.
     const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
@@ -98,6 +99,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
+=======
+ Dev
     return NextResponse.json(
       {
         message: "Registration successful. Your account is pending admin approval.",

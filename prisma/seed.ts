@@ -88,6 +88,7 @@ async function main() {
     },
   });
 
+ Himasha
   // Real photo for the demo product (uploaded by the team), so the
   // Home page's "Trending Innovations" section has something real to
   // show instead of an empty box.
@@ -122,6 +123,11 @@ async function main() {
   }
 
   // ---------------------------------------------------------------
+
+  console.log(`Demo data ready. Test with:`);
+  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
+  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+ Dev
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
@@ -140,10 +146,13 @@ async function main() {
   });
 
   console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
+ Himasha
 
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+
+ Dev
 }
 
 main()
