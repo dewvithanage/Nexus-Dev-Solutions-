@@ -10,9 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================
+// 
 // ENUMS
-// ==========================================
+// 
 
 enum UserRole {
   ENTREPRENEUR
@@ -47,9 +47,9 @@ enum VerificationStatus {
   FLAGGED
 }
 
-// ==========================================
+// 
 // USERS & AUTH (Entrepreneurs + Admins only — customers are guests)
-// ==========================================
+// 
 
 model User {
   id           String   @id @default(cuid())
@@ -118,9 +118,9 @@ model Business {
   updatedAt             DateTime            @updatedAt
 }
 
-// ==========================================
+// 
 // CATEGORIES & PRODUCTS
-// ==========================================
+// 
 
 model Category {
  Himasha
@@ -185,9 +185,9 @@ model ProductImage {
   sortOrder Int     @default(0)
 }
 
-// ==========================================
+// 
 // ORDERS (guest customers)
-// ==========================================
+// 
 
 model Order {
   id                    String              @id @default(cuid())
@@ -239,9 +239,9 @@ model SalesConfirmation {
   createdAt          DateTime            @default(now())
 }
 
-// ==========================================
+// 
 // REVIEWS (guest reviewer)
-// ==========================================
+// 
 
 model Review {
   id           String   @id @default(cuid())
@@ -255,9 +255,9 @@ model Review {
   @@index([productId])
 }
 
-// ==========================================
+// 
 // NOTIFICATIONS
-// ==========================================
+// 
 
 model Notification {
   id                String   @id @default(cuid())
@@ -274,9 +274,9 @@ model Notification {
   @@index([userId, isRead])
 }
 
-// ==========================================
+// 
 // GALLERY & CONTENT (Admin-managed)
-// ==========================================
+// 
 
 model GalleryItem {
   id           String   @id @default(cuid())
