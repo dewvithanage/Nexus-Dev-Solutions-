@@ -72,29 +72,6 @@ export async function POST(request: NextRequest) {
       },
     });
 
-<<<<<<< Updated upstream
-    // Notify the entrepreneur that owns this business — this is what
-    // populates their Notification Center ("New WhatsApp Coordination
-    // Inquiry" style entries in the Figma).
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
-      include: { entrepreneurProfile: true },
-    });
-    if (business) {
-      await prisma.notification.create({
-        data: {
-          userId: business.entrepreneurProfile.userId,
-          type: "ORDER",
-          title: "New Order Received",
-          message: `${buyerName} placed an order for Rs.${totalAmount.toFixed(2)}. Coordinate pickup via WhatsApp.`,
-          relatedEntityType: "Order",
-          relatedEntityId: order.id,
-        },
-      });
-    }
-
-=======
->>>>>>> Stashed changes
     return NextResponse.json({ message: "Order created.", orderId: order.id }, { status: 201 });
   } catch (error) {
     console.error("Create order error:", error);
