@@ -160,7 +160,6 @@ model Product {
 
   status          ProductStatus  @default(PENDING)
   rejectionReason String?
-  adminNotes      String?
   reviewedById    String?
   reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?

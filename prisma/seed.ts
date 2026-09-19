@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Categories from the approved Figma design (Home page "Featured Categories").
 const categories = [
   { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
   { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
@@ -23,6 +24,9 @@ async function main() {
 
   console.log(`Seeded ${categories.length} categories.`);
 
+  // ---------------------------------------------------------------
+  // DEMO ENTREPRENEUR + DEMO ORDER
+  // ---------------------------------------------------------------
   const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
   if (!demoCategory) return;
 
@@ -82,14 +86,10 @@ async function main() {
     },
   });
 
-  // NOTE: demo images now live in /public/images/ (NOT /public/uploads/),
-  // because /public/uploads/ is gitignored (it's meant for real user
-  // uploads, not permanent project assets) — these demo photos need to
-  // actually be committed to the repo so the whole team sees them.
- Himasha
-  // Real photo for the demo product (uploaded by the team), so the
-  // Home page's "Trending Innovations" section has something real to
-  // show instead of an empty box.
+  // Demo images live in /public/images/ (NOT /public/uploads/), because
+  // /public/uploads/ is gitignored (meant for real user uploads, not
+  // permanent project assets) — these demo photos need to actually be
+  // committed to the repo so the whole team sees them.
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -105,12 +105,6 @@ async function main() {
     await prisma.productImage.updateMany({
       where: { productId: demoProduct.id },
       data: { url: "/images/demo-cardigan.png" },
-    });
-  }
-
-        url: "/uploads/products/demo-cardigan.png",
-        sortOrder: 0,
-      },
     });
   }
 
@@ -131,6 +125,10 @@ async function main() {
     });
   }
 
+  // ---------------------------------------------------------------
+  // 3 MORE DEMO PRODUCTS — each with a real photo and review, so
+  // "Trending Innovations" on the Home page has more than one item.
+  // ---------------------------------------------------------------
   const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
   const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
   const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
@@ -213,12 +211,8 @@ async function main() {
       });
     }
   }
-  // ---------------------------------------------------------------
 
-  console.log(`Demo data ready. Test with:`);
-  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
-  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
- Dev
+  // ---------------------------------------------------------------
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
@@ -237,13 +231,10 @@ async function main() {
   });
 
   console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
- Himasha
 
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
-
- Dev
 }
 
 main()
@@ -254,8 +245,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
-
-  
