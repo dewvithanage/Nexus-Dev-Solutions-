@@ -47,11 +47,12 @@ export default function AddProductPage() {
     posting: false,
   });
 
-  // TODO (Sprint 1): this only previews the image locally so far. Actual
-  // upload-to-server wiring (see Risk 6 in the architecture doc — saving
-  // files under /public/uploads and storing the path via ProductImage)
-  // still needs to be added before Add Product is fully done.
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  // Real image upload now (see lib/upload.ts + /api/products/[id]/images) —
+  // this used to only preview locally (Risk 6 in the architecture doc).
+  // Keep the actual File objects so we can upload them after the product
+  // itself is created, plus preview URLs just for showing thumbnails.
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,12 +88,14 @@ export default function AddProductPage() {
   }
 
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
 
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setImagePreview(imageUrl);
-    }
+    // Cap at 4 total, matching the "Upload up to 4 high-res photos" note
+    // on this page and the limit enforced server-side.
+    const combined = [...selectedFiles, ...files].slice(0, 4);
+    setSelectedFiles(combined);
+    setPreviewUrls(combined.map((file) => URL.createObjectURL(file)));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -149,6 +152,25 @@ export default function AddProductPage() {
       if (!response.ok) {
         setError(data.message || "Failed to add product.");
         return;
+      }
+
+      // Product is created first, THEN images are uploaded against its
+      // real id — this two-step order is necessary since the image
+      // upload endpoint needs a product to attach images to.
+      if (selectedFiles.length > 0 && data.product?.id) {
+        const imageFormData = new FormData();
+        selectedFiles.forEach((file) => imageFormData.append("images", file));
+
+        const imageResponse = await fetch(`/api/products/${data.product.id}/images`, {
+          method: "POST",
+          body: imageFormData,
+        });
+
+        if (!imageResponse.ok) {
+          // Don't block the whole flow if only the image step fails —
+          // the product itself was created successfully either way.
+          console.error("Image upload failed, but product was created.");
+        }
       }
 
       alert("Product submitted successfully!");
@@ -283,31 +305,35 @@ export default function AddProductPage() {
                         Drag & drop product images here
                       </p>
                       <p className="mt-1 text-[9px] font-medium text-[#667085]">
-                        Upload PNG or JPG product images
+                        Upload up to 4 PNG or JPG images
                       </p>
                       <input
                         type="file"
                         accept="image/png,image/jpeg"
+                        multiple
                         onChange={handleImageChange}
                         className="hidden"
                       />
                     </label>
 
-                    {imagePreview && (
-                      <div className="h-[95px] w-[95px] overflow-hidden rounded-md border-2 border-[#2563EB]">
-                        <img src={imagePreview} alt="Product preview" className="h-full w-full object-cover" />
+                    {previewUrls.map((url, index) => (
+                      <div key={index} className="h-[95px] w-[95px] shrink-0 overflow-hidden rounded-md border-2 border-[#2563EB]">
+                        <img src={url} alt={`Product preview ${index + 1}`} className="h-full w-full object-cover" />
                       </div>
-                    )}
+                    ))}
 
-                    <label className="flex h-[95px] w-[60px] cursor-pointer items-center justify-center rounded-md border border-[#AFC0D3] bg-white">
-                      <Plus size={20} className="text-[#34445A]" />
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
+                    {previewUrls.length < 4 && (
+                      <label className="flex h-[95px] w-[60px] shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#AFC0D3] bg-white">
+                        <Plus size={20} className="text-[#34445A]" />
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          multiple
+                          onChange={handleImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
                 </section>
               </div>
