@@ -18,6 +18,7 @@ export async function GET(
         category: true,
         images: true,
         reviews: true,
+reviews: true,
         business: {
           include: { entrepreneurProfile: { include: { user: true } } },
         },
@@ -27,6 +28,9 @@ export async function GET(
     if (!product) {
       return NextResponse.json({ message: "Product not found." }, { status: 404 });
     }
+
+
+    return NextResponse.json({ product });
 
     const averageRating =
       product.reviews.length > 0
@@ -40,6 +44,7 @@ export async function GET(
         reviewCount: product.reviews.length,
       },
     });
+
   } catch (error) {
     console.error("Get product error:", error);
     return NextResponse.json({ message: "Unable to load product." }, { status: 500 });
