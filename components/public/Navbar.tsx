@@ -81,7 +81,7 @@ export default function Navbar() {
             href="/entrepreneur/login"
             className="shrink-0 whitespace-nowrap rounded-md bg-orange-500 px-3 py-2 text-xs font-semibold text-white hover:bg-orange-600"
           >
-            Post Product
+            Sell With Us
           </Link>
         </div>
       </div>
