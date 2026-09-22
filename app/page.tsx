@@ -93,38 +93,46 @@ export default function HomePage() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 py-16 md:grid-cols-2">
-          <div>
-            <h1 className="text-4xl font-bold leading-tight text-slate-900">
-              Discover Student-Made Products &amp; Services
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              A specialized marketplace showcasing handcrafted merchandise, innovative
-              digital tools, custom bakes, and professional services engineered
-              entirely by university entrepreneurs.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <Link
-                href="/marketplace"
-                className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Browse Marketplace
-              </Link>
-              <Link
-                href="/about"
-                className="rounded-md border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Learn More
-              </Link>
+        {/* Hero — full-bleed background photo (Ken Burns zoom) with a
+            dark gradient overlay so the white text stays readable on
+            top of it, replacing the earlier two-column text/photo layout. */}
+        <section className="relative isolate flex h-[520px] items-center overflow-hidden">
+          <img
+            src="/images/home-hero.png"
+            alt="Startup Spark — student entrepreneurs"
+            className="animate-kenburns absolute inset-0 h-full w-full object-cover"
+          />
+          {/* Dark gradient overlay — darkest on the left where the text
+              sits, fading out toward the right so the photo still shows
+              through. Without this, white text would be unreadable
+              against a bright photo. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-6">
+            <div className="animate-fade-in-up max-w-xl">
+              <h1 className="text-4xl font-bold leading-tight text-white drop-shadow-sm">
+                Discover Student-Made Products &amp; Services
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-slate-100">
+                A specialized marketplace showcasing handcrafted merchandise, innovative
+                digital tools, custom bakes, and professional services engineered
+                entirely by university entrepreneurs.
+              </p>
+              <div className="mt-6 flex gap-3">
+                <Link
+                  href="/marketplace"
+                  className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:scale-105 hover:bg-blue-700"
+                >
+                  Browse Marketplace
+                </Link>
+                <Link
+                  href="/about"
+                  className="rounded-md border border-white/70 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:scale-105 hover:bg-white/20"
+                >
+                  Learn More
+                </Link>
+              </div>
             </div>
-          </div>
-          <div className="overflow-hidden rounded-xl">
-            <img
-              src="/images/home-hero.png"
-              alt="Startup Spark — student entrepreneurs"
-              className="h-64 w-full rounded-xl object-cover"
-            />
           </div>
         </section>
 

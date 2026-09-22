@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Star } from "lucide-react";
 
 export type ProductCardData = {
@@ -13,15 +14,28 @@ export type ProductCardData = {
 
 // Used on Home, Marketplace, Search Results, and Category Details — one
 // card component so all four pages look consistent, matching the Figma.
+//
+// Uses next/image instead of a plain <img> tag: this automatically
+// compresses images, converts them to modern formats (WebP/AVIF) where
+// supported, resizes them to the actual display size, and lazy-loads
+// any image below the fold — all of which plain <img> tags skip
+// entirely. This is what was making the Home page's product photos
+// slow to load.
 export default function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.id}`}
       className="block overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:shadow-md"
     >
-      <div className="aspect-square w-full bg-slate-100">
+      <div className="relative aspect-square w-full bg-slate-100">
         {product.imageUrl && (
-          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 50vw, 25vw"
+            className="object-cover"
+          />
         )}
       </div>
 
