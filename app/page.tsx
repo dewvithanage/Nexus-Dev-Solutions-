@@ -215,8 +215,14 @@ export default function HomePage() {
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-              {trendingProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {trendingProducts.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <ProductCard product={product} />
+                </div>
               ))}
             </div>
           )}

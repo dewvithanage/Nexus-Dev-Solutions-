@@ -25,16 +25,16 @@ export default function ProductCard({ product }: { product: ProductCardData }) {
   return (
     <Link
       href={`/products/${product.id}`}
-      className="block overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:shadow-md"
+      className="group block overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
     >
-      <div className="relative aspect-square w-full bg-slate-100">
+      <div className="relative aspect-square w-full overflow-hidden bg-slate-100">
         {product.imageUrl && (
           <Image
             src={product.imageUrl}
             alt={product.name}
             fill
             sizes="(max-width: 768px) 50vw, 25vw"
-            className="object-cover"
+            className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
         )}
       </div>
