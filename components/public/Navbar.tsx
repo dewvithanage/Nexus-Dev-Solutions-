@@ -33,7 +33,7 @@ export default function Navbar() {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 gap-x-4 px-6 py-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-8 w-8 rounded" />
+          <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-10 w-10 rounded" />
           <span className="whitespace-nowrap text-lg font-bold text-slate-900">
             Startup<span className="text-blue-600">Spark</span>
           </span>
