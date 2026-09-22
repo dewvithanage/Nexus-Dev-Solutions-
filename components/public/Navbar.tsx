@@ -30,7 +30,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-slate-200 bg-white">
+    <header className="border-b border-slate-200 bg-gradient-to-r from-indigo-200 via-fuchsia-100 to-orange-200">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 gap-x-4 px-6 py-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-10 w-10 rounded" />
