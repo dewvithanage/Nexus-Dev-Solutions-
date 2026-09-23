@@ -132,8 +132,20 @@ async function main() {
   const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
   const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
   const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
+  const servicesCategory = await prisma.category.findUnique({ where: { slug: "services" } });
+  const fashionCategory = await prisma.category.findUnique({ where: { slug: "fashion-apparel" } });
 
-  const extraProducts = [
+  const extraProducts: {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    category: { id: string } | null;
+    imageUrl?: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+  }[] = [
     {
       id: "demo-product-planner",
       name: "Syllabus Study Planner AI",
@@ -167,6 +179,30 @@ async function main() {
       rating: 4,
       comment: "Beautiful work, captured my dog perfectly.",
     },
+    // Original illustrations (not stock photos, avoids any copyright
+    // concern) since no real photos exist for these 2 demo products yet.
+    {
+      id: "demo-product-resume",
+      name: "Resume & CV Design Service",
+      description: "Professional resume design and formatting, turned around within 48 hours.",
+      price: 500,
+      category: servicesCategory,
+      imageUrl: "/images/demo-resume.svg",
+      reviewerName: "Nadeesha Fonseka",
+      rating: 5,
+      comment: "Got interview callbacks within a week of using this resume!",
+    },
+    {
+      id: "demo-product-totebag",
+      name: "Custom Tie-Dye Tote Bag",
+      description: "Hand-dyed canvas tote bags, each one-of-a-kind, made to order.",
+      price: 850,
+      category: fashionCategory,
+      imageUrl: "/images/demo-totebag.svg",
+      reviewerName: "Ravindu Silva",
+      rating: 4,
+      comment: "Super unique, gets compliments every time I use it.",
+    },
   ];
 
   for (const item of extraProducts) {
@@ -199,16 +235,21 @@ async function main() {
       });
     }
 
-    const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
-    if (!existingImage) {
-      await prisma.productImage.create({
-        data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
-      });
-    } else {
-      await prisma.productImage.updateMany({
-        where: { productId: item.id },
-        data: { url: item.imageUrl },
-      });
+    // Only create/update the image if this product actually has one —
+    // the last 2 demo products don't, and that's fine (same as any
+    // real product before its entrepreneur uploads photos).
+    if (item.imageUrl) {
+      const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
+      if (!existingImage) {
+        await prisma.productImage.create({
+          data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
+        });
+      } else {
+        await prisma.productImage.updateMany({
+          where: { productId: item.id },
+          data: { url: item.imageUrl },
+        });
+      }
     }
   }
 
