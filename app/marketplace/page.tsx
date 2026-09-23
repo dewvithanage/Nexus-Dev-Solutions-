@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
@@ -8,20 +9,31 @@ import ProductCard, { type ProductCardData } from "@/components/public/ProductCa
 
 type Category = { id: string; name: string; slug: string };
 
+type Pagination = { currentPage: number; totalPages: number; totalCount: number; pageSize: number };
+
 export default function MarketplacePage() {
   const [products, setProducts] = useState<ProductCardData[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [selectedCategory, setSelectedCategory] = useState("");
   const [maxPrice, setMaxPrice] = useState(5000);
   const [sort, setSort] = useState("newest");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/categories")
       .then((response) => response.json())
       .then((data) => setCategories(data.categories || []));
   }, []);
+
+  // Whenever a filter changes, go back to page 1 — staying on, say,
+  // page 3 after changing the category could land on an empty page
+  // that doesn't exist for the new filter.
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategory, maxPrice, sort]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -31,19 +43,44 @@ export default function MarketplacePage() {
         if (selectedCategory) params.set("category", selectedCategory);
         if (maxPrice < 5000) params.set("maxPrice", String(maxPrice));
         params.set("sort", sort);
+        params.set("page", String(page));
 
         const response = await fetch(`/api/marketplace/products?${params.toString()}`);
         const data = await response.json();
-        if (response.ok) setProducts(data.products);
+        if (response.ok) {
+          setProducts(data.products);
+          setPagination(data.pagination);
+        }
       } catch (error) {
         console.error("Load marketplace products error:", error);
       } finally {
         setLoading(false);
+        // Scroll back to the top of the results when the page changes,
+        // so the person isn't left scrolled halfway down an empty area.
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
 
     loadProducts();
-  }, [selectedCategory, maxPrice, sort]);
+  }, [selectedCategory, maxPrice, sort, page]);
+
+  // Builds a compact page number list like [1, 2, 3, "...", 8] instead
+  // of showing every single page number when there are many pages.
+  function getPageNumbers(current: number, total: number): (number | "...")[] {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+
+    const pages: (number | "...")[] = [1];
+    if (current > 3) pages.push("...");
+
+    const start = Math.max(2, current - 1);
+    const end = Math.min(total - 1, current + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (current < total - 2) pages.push("...");
+    pages.push(total);
+
+    return pages;
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F5F7FA]">
@@ -51,7 +88,7 @@ export default function MarketplacePage() {
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
         <p className="mb-5 text-sm text-slate-500">
-          Showing {products.length} products on campus
+          {pagination ? `Showing ${products.length} of ${pagination.totalCount} products` : "Loading..."}
         </p>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr]">
@@ -117,7 +154,7 @@ export default function MarketplacePage() {
               <select
                 value={sort}
                 onChange={(event) => setSort(event.target.value)}
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700"
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
               >
                 <option value="newest">Newest</option>
                 <option value="price_asc">Price: Low to High</option>
@@ -127,7 +164,7 @@ export default function MarketplacePage() {
             </div>
           </aside>
 
-          {/* Product grid */}
+          {/* Product grid + pagination */}
           <div>
             {loading ? (
               <p className="text-sm text-slate-500">Loading products...</p>
@@ -136,11 +173,53 @@ export default function MarketplacePage() {
                 No products match your filters.
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
-                {products.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
+                  {products.map((product) => (
+                    <ProductCard key={product.id} product={product} />
+                  ))}
+                </div>
+
+                {pagination && pagination.totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-1.5">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={pagination.currentPage === 1}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+
+                    {getPageNumbers(pagination.currentPage, pagination.totalPages).map((pageNumber, index) =>
+                      pageNumber === "..." ? (
+                        <span key={`ellipsis-${index}`} className="px-1.5 text-xs text-slate-400">
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={pageNumber}
+                          onClick={() => setPage(pageNumber)}
+                          className={`h-8 w-8 rounded-md text-xs font-semibold transition ${
+                            pageNumber === pagination.currentPage
+                              ? "bg-blue-600 text-white"
+                              : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          {pageNumber}
+                        </button>
+                      )
+                    )}
+
+                    <button
+                      onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+                      disabled={pagination.currentPage === pagination.totalPages}
+                      className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -150,7 +229,3 @@ export default function MarketplacePage() {
     </div>
   );
 }
-
-
-
-
