@@ -31,3 +31,15 @@ export const UNIVERSITY_EMAIL_EXAMPLE = "ar118533@fhss.sjp.ac.lk";
 // the pattern above with something like:
 //   /^[a-zA-Z0-9._-]+@([a-zA-Z0-9-]+\.)*sjp\.ac\.lk$/i
 // which accepts any username at any subdomain of sjp.ac.lk.
+
+// Generic email FORMAT check — used for Admin Login, which isn't tied to
+// the university email restriction above (admin accounts aren't students).
+// This is a standard, widely-used "good enough" email pattern: not a
+// full RFC 5322 validator (that's notoriously overkill and still lets
+// through addresses that don't actually work), just enough to catch
+// obviously malformed input before it reaches the database.
+const GENERIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmailFormat(email: string): boolean {
+  return GENERIC_EMAIL_PATTERN.test(email.trim());
+}

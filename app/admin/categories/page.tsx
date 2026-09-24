@@ -27,6 +27,7 @@ export default function CategoryManagementPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadCategories();
@@ -115,7 +116,12 @@ export default function CategoryManagementPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Category Management" />
+        <DashboardHeader
+          title="Category Management"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search categories..."
+        />
 
         <main className="p-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
@@ -134,7 +140,12 @@ export default function CategoryManagementPage() {
                 <p className="text-sm text-slate-500">Loading...</p>
               ) : (
                 <div className="space-y-1.5">
-                  {categories.map((category) => (
+                  {categories
+                    .filter((category) => {
+                      const term = searchTerm.trim().toLowerCase();
+                      return term === "" || category.name.toLowerCase().includes(term);
+                    })
+                    .map((category) => (
                     <button
                       key={category.id}
                       onClick={() => selectCategory(category)}

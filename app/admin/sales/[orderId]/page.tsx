@@ -98,7 +98,7 @@ export default function SalesConfirmationDetailsPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title={`Transaction Audit: TX-${order.id.slice(-4)}`} />
+        <DashboardHeader title={`Transaction Audit: TX-${order.id.slice(-4)}`} notificationsHref="/admin/notifications" />
 
         <main className="p-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">

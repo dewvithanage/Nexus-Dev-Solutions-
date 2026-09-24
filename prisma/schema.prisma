@@ -10,9 +10,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==========================================
+// 
 // ENUMS
-// ==========================================
+// 
 
 enum UserRole {
   ENTREPRENEUR
@@ -47,9 +47,9 @@ enum VerificationStatus {
   FLAGGED
 }
 
-// ==========================================
+// 
 // USERS & AUTH (Entrepreneurs + Admins only — customers are guests)
-// ==========================================
+// 
 
 model User {
   id           String   @id @default(cuid())
@@ -118,11 +118,15 @@ model Business {
   updatedAt             DateTime            @updatedAt
 }
 
-// ==========================================
+// 
 // CATEGORIES & PRODUCTS
-// ==========================================
+// 
 
 model Category {
+<<<<<<< HEAD
+=======
+ Himasha
+>>>>>>> origin/Dev
   id          String    @id @default(cuid())
   name        String    @unique
   slug        String    @unique
@@ -130,6 +134,17 @@ model Category {
   description String?
   products    Product[]
   createdAt   DateTime  @default(now())
+<<<<<<< HEAD
+=======
+
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  icon      String?
+  products  Product[]
+  createdAt DateTime  @default(now())
+ Dev
+>>>>>>> origin/Dev
 }
 
 model Product {
@@ -151,7 +166,6 @@ model Product {
 
   status          ProductStatus  @default(PENDING)
   rejectionReason String?
-  adminNotes      String?
   reviewedById    String?
   reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?
@@ -176,9 +190,9 @@ model ProductImage {
   sortOrder Int     @default(0)
 }
 
-// ==========================================
+// 
 // ORDERS (guest customers)
-// ==========================================
+// 
 
 model Order {
   id                    String              @id @default(cuid())
@@ -230,9 +244,9 @@ model SalesConfirmation {
   createdAt          DateTime            @default(now())
 }
 
-// ==========================================
+// 
 // REVIEWS (guest reviewer)
-// ==========================================
+// 
 
 model Review {
   id           String   @id @default(cuid())
@@ -246,9 +260,9 @@ model Review {
   @@index([productId])
 }
 
-// ==========================================
+// 
 // NOTIFICATIONS
-// ==========================================
+// 
 
 model Notification {
   id                String   @id @default(cuid())
@@ -265,9 +279,9 @@ model Notification {
   @@index([userId, isRead])
 }
 
-// ==========================================
+// 
 // GALLERY & CONTENT (Admin-managed)
-// ==========================================
+// 
 
 model GalleryItem {
   id           String   @id @default(cuid())

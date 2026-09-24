@@ -8,12 +8,21 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+<<<<<<< HEAD
   const [resetLink, setResetLink] = useState<string | null>(null);
+=======
+  const [submitted, setSubmitted] = useState(false);
+  const [sentViaEmail, setSentViaEmail] = useState(true);
+  const [fallbackLink, setFallbackLink] = useState<string | null>(null);
+>>>>>>> origin/Dev
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+<<<<<<< HEAD
     setResetLink(null);
+=======
+>>>>>>> origin/Dev
 
     if (!email) {
       setError("Please enter your university email.");
@@ -36,9 +45,15 @@ export default function ForgotPasswordPage() {
         return;
       }
 
+<<<<<<< HEAD
       // No real email is sent for this student project — show the link
       // directly so the flow can be demoed end to end.
       setResetLink(data.resetLink);
+=======
+      setSubmitted(true);
+      setSentViaEmail(data.sentViaEmail);
+      setFallbackLink(data.resetLink);
+>>>>>>> origin/Dev
     } catch (error) {
       console.error("Forgot password request error:", error);
       setError("Something went wrong. Please try again.");
@@ -66,6 +81,7 @@ export default function ForgotPasswordPage() {
           <p className="mt-1 text-xs text-slate-500">Access your entrepreneur dashboard</p>
         </div>
 
+<<<<<<< HEAD
         {resetLink ? (
           <div className="space-y-4">
             <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
@@ -78,6 +94,31 @@ export default function ForgotPasswordPage() {
             >
               {resetLink}
             </Link>
+=======
+        {submitted ? (
+          <div className="space-y-4">
+            {sentViaEmail ? (
+              <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+                If that email is registered, a password reset link has been sent to it.
+                Check your inbox (and spam folder).
+              </div>
+            ) : (
+              <>
+                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+                  Email sending isn't configured on this machine yet — here's the
+                  reset link directly instead:
+                </div>
+                {fallbackLink && (
+                  <Link
+                    href={fallbackLink}
+                    className="block break-all rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700 hover:underline"
+                  >
+                    {fallbackLink}
+                  </Link>
+                )}
+              </>
+            )}
+>>>>>>> origin/Dev
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
