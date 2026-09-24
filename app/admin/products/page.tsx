@@ -26,6 +26,7 @@ export default function ProductManagementPage() {
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     async function loadProducts() {
@@ -53,7 +54,16 @@ export default function ProductManagementPage() {
   const filtered = products.filter((product) => {
     const matchesCategory = categoryFilter === "All" || product.category === categoryFilter;
     const matchesStatus = statusFilter === "All" || product.status === statusFilter;
-    return matchesCategory && matchesStatus;
+    // FIX: the header's search box was previously decorative — typing
+    // in it did nothing at all. Now it filters this same list by
+    // product name OR entrepreneur name, matching what an admin
+    // scanning this directory would actually expect to search for.
+    const term = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      term === "" ||
+      product.name.toLowerCase().includes(term) ||
+      product.entrepreneurName.toLowerCase().includes(term);
+    return matchesCategory && matchesStatus && matchesSearch;
   });
 
   return (
@@ -61,7 +71,12 @@ export default function ProductManagementPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Master Venture Directory" />
+        <DashboardHeader
+          title="Master Venture Directory"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search product or entrepreneur..."
+        />
 
         <main className="p-8">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">

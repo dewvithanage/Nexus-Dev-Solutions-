@@ -30,6 +30,7 @@ export default function SalesVerificationPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("PENDING");
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -39,12 +40,30 @@ export default function SalesVerificationPage() {
       .finally(() => setLoading(false));
   }, [activeTab]);
 
+  // FIX: header search box was previously decorative. Now filters this
+  // list by buyer, seller/entrepreneur, business, or product name.
+  const filteredOrders = orders.filter((order) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (term === "") return true;
+    return (
+      order.buyerName.toLowerCase().includes(term) ||
+      order.sellerName.toLowerCase().includes(term) ||
+      order.businessName.toLowerCase().includes(term) ||
+      order.productNames.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Financial Sales Verification" />
+        <DashboardHeader
+          title="Financial Sales Verification"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search buyer, seller, product..."
+        />
 
         <main className="p-8">
           <div className="mb-5 flex gap-2">
@@ -68,6 +87,8 @@ export default function SalesVerificationPage() {
               <p className="p-8 text-sm text-slate-500">Loading orders...</p>
             ) : orders.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No orders in this category.</p>
+            ) : filteredOrders.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">No orders match your search.</p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
@@ -83,7 +104,7 @@ export default function SalesVerificationPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {orders.map((order) => (
+                  {filteredOrders.map((order) => (
                     <tr key={order.id} className="text-[12px] text-slate-600">
                       <td className="px-5 py-4 font-semibold text-slate-800">TX-{order.id.slice(-4)}</td>
                       <td className="px-5 py-4">{order.productNames}</td>

@@ -24,11 +24,18 @@ export async function PATCH(
         reviewedById: admin.id,
         rejectionReason,
       },
+      // Need the business -> entrepreneurProfile -> userId chain since
+      // Product itself doesn't store who owns it directly, only which
+      // business does — this is what lets us know who to notify.
       include: {
         business: { include: { entrepreneurProfile: true } },
       },
     });
 
+    // FIX: this route previously did NOT create a notification at all —
+    // rejecting a product silently updated its status with no way for
+    // the entrepreneur to find out why (or that it happened) other than
+    // manually checking Submission Status.
     await prisma.notification.create({
       data: {
         userId: product.business.entrepreneurProfile.userId,

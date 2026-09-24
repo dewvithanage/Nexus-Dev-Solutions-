@@ -24,6 +24,19 @@ export default function ContentManagementPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // FIX: header search box was previously decorative. Filters by
+  // reviewer name, the product being reviewed, or the comment text.
+  const filteredReviews = reviews.filter((review) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (term === "") return true;
+    return (
+      review.reviewerName.toLowerCase().includes(term) ||
+      review.product.name.toLowerCase().includes(term) ||
+      review.comment.toLowerCase().includes(term)
+    );
+  });
 
   useEffect(() => {
     loadReviews();
@@ -54,7 +67,12 @@ export default function ContentManagementPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Content Management" />
+        <DashboardHeader
+          title="Content Management"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search reviewer, product..."
+        />
 
         <main className="p-8">
           <h1 className="mb-1 text-lg font-bold text-slate-900">
@@ -70,6 +88,8 @@ export default function ContentManagementPage() {
               <p className="p-8 text-sm text-slate-500">Loading reviews...</p>
             ) : reviews.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No reviews submitted yet.</p>
+            ) : filteredReviews.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">No reviews match your search.</p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
@@ -83,7 +103,7 @@ export default function ContentManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {reviews.map((review) => (
+                  {filteredReviews.map((review) => (
                     <tr key={review.id} className="text-[12px] text-slate-600">
                       <td className="px-5 py-4 font-medium text-slate-800">{review.product.name}</td>
                       <td className="px-5 py-4">{review.reviewerName}</td>

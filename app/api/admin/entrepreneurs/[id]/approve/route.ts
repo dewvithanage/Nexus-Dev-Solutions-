@@ -24,8 +24,7 @@ export async function PATCH(
       },
     });
 
-    // Notify the entrepreneur — this is what makes their Notification
-    // Center actually show something when an admin acts on their account.
+    // FIX: this route previously did NOT create a notification at all.
     await prisma.notification.create({
       data: {
         userId: entrepreneur.userId,

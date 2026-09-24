@@ -73,7 +73,12 @@ export default function EntrepreneurManagementPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Master Entrepreneur Directory" />
+        <DashboardHeader
+          title="Master Entrepreneur Directory"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search database..."
+        />
 
         <main className="p-8">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
