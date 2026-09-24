@@ -17,11 +17,8 @@ export async function GET(
       include: {
         category: true,
         images: true,
-<<<<<<< HEAD
-=======
         reviews: true,
 reviews: true,
->>>>>>> origin/Dev
         business: {
           include: { entrepreneurProfile: { include: { user: true } } },
         },
@@ -32,9 +29,6 @@ reviews: true,
       return NextResponse.json({ message: "Product not found." }, { status: 404 });
     }
 
-<<<<<<< HEAD
-    return NextResponse.json({ product });
-=======
 
     return NextResponse.json({ product });
 
@@ -51,7 +45,6 @@ reviews: true,
       },
     });
 
->>>>>>> origin/Dev
   } catch (error) {
     console.error("Get product error:", error);
     return NextResponse.json({ message: "Unable to load product." }, { status: 500 });
