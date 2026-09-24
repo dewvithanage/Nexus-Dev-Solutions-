@@ -98,7 +98,7 @@ export default function HomePage() {
             top of it, replacing the earlier two-column text/photo layout. */}
         <section className="relative isolate flex h-[520px] items-center overflow-hidden">
           <img
-            src="/images/home-hero.png"
+            src="/images/new-hero.png"
             alt="Startup Spark — student entrepreneurs"
             className="animate-kenburns absolute inset-0 h-full w-full object-cover"
           />
