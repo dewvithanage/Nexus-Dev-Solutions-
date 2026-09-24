@@ -48,20 +48,21 @@ enum VerificationStatus {
 }
 
 // 
-// USERS & AUTH (Entrepreneurs + Admins only — customers are guests)
+// USERS & AUTH
+// Entrepreneurs + Admins only — customers are guests
 // 
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  role         UserRole
-  name         String
-  phone        String?
-  resetToken       String?   @unique
+  id               String   @id @default(cuid())
+  email            String   @unique
+  passwordHash     String
+  role             UserRole
+  name             String
+  phone            String?
+  resetToken       String?  @unique
   resetTokenExpiry DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   entrepreneurProfile EntrepreneurProfile?
   notifications       Notification[]
@@ -76,14 +77,14 @@ model User {
 }
 
 model EntrepreneurProfile {
-  id              String         @id @default(cuid())
-  userId          String         @unique
-  user            User           @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
 
-  university      String?
-  studentId       String?
-  bio             String?
-  whatsappNumber  String
+  university     String?
+  studentId      String?
+  bio            String?
+  whatsappNumber String
 
   status          ApprovalStatus @default(PENDING)
   rejectionReason String?
@@ -92,7 +93,7 @@ model EntrepreneurProfile {
   reviewedById    String?
   reviewedBy      User?          @relation("EntrepreneurReviewedBy", fields: [reviewedById], references: [id])
 
-  business        Business?
+  business Business?
 
   @@index([status])
 }
@@ -102,20 +103,20 @@ model Business {
   entrepreneurProfileId String              @unique
   entrepreneurProfile   EntrepreneurProfile @relation(fields: [entrepreneurProfileId], references: [id])
 
-  businessName          String
-  description           String?
-  logoUrl               String?
-  businessCategory      String?
-  instagramHandle       String?
-  websiteUrl            String?
-  businessHours         String?
-  pickupLocationNotes   String?
+  businessName        String
+  description         String?
+  logoUrl             String?
+  businessCategory    String?
+  instagramHandle     String?
+  websiteUrl          String?
+  businessHours       String?
+  pickupLocationNotes String?
 
-  products              Product[]
-  orders                Order[]
+  products Product[]
+  orders   Order[]
 
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // 
@@ -123,7 +124,6 @@ model Business {
 // 
 
 model Category {
- Himasha
   id          String    @id @default(cuid())
   name        String    @unique
   slug        String    @unique
@@ -131,45 +131,38 @@ model Category {
   description String?
   products    Product[]
   createdAt   DateTime  @default(now())
-
-  id        String    @id @default(cuid())
-  name      String    @unique
-  slug      String    @unique
-  icon      String?
-  products  Product[]
-  createdAt DateTime  @default(now())
- Dev
 }
 
 model Product {
-  id              String         @id @default(cuid())
-  businessId      String
-  business        Business       @relation(fields: [businessId], references: [id])
-  categoryId      String
-  category        Category       @relation(fields: [categoryId], references: [id])
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
 
-  name            String
-  description     String
-  price           Decimal        @db.Decimal(10, 2)
-  stockQuantity   Int            @default(0)
-  tags            String[]       @default([])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
 
-  onCampusPickup  Boolean        @default(false)
-  areaDropOff     Boolean        @default(false)
-  postingEnabled  Boolean        @default(false)
+  name          String
+  description   String
+  price         Decimal  @db.Decimal(10, 2)
+  stockQuantity Int      @default(0)
+  tags          String[] @default([])
 
-  status          ProductStatus  @default(PENDING)
+  onCampusPickup Boolean @default(false)
+  areaDropOff    Boolean @default(false)
+  postingEnabled Boolean @default(false)
+
+  status          ProductStatus @default(PENDING)
   rejectionReason String?
   reviewedById    String?
-  reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
+  reviewedBy      User?         @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?
 
-  images          ProductImage[]
-  orderItems      OrderItem[]
-  reviews         Review[]
+  images     ProductImage[]
+  orderItems OrderItem[]
+  reviews    Review[]
 
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([categoryId])
@@ -185,67 +178,72 @@ model ProductImage {
 }
 
 // 
-// ORDERS (guest customers)
+// ORDERS
+// Guest customers
 // 
 
 model Order {
-  id                    String              @id @default(cuid())
-  businessId            String
-  business              Business            @relation(fields: [businessId], references: [id])
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
 
   buyerName             String
   buyerPhone            String
   deliveryLocation      String
   messageToEntrepreneur String?
 
-  totalAmount           Decimal             @db.Decimal(10, 2)
-  status                OrderStatus         @default(PENDING)
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
 
-  items                 OrderItem[]
-  salesConfirmation     SalesConfirmation?
+  items             OrderItem[]
+  salesConfirmation SalesConfirmation?
 
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([businessId])
   @@index([status])
 }
 
 model OrderItem {
-  id               String  @id @default(cuid())
-  orderId          String
-  order            Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId        String
-  product          Product @relation(fields: [productId], references: [id])
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
   quantity         Int
   unitPriceAtOrder Decimal @db.Decimal(10, 2)
 }
 
 model SalesConfirmation {
-  id                 String              @id @default(cuid())
-  orderId            String              @unique
-  order              Order               @relation(fields: [orderId], references: [id])
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id])
 
-  proofImageUrl      String
-  deliveryDate       DateTime
-  notes              String?
+  proofImageUrl String
+  deliveryDate  DateTime
+  notes         String?
 
-  verificationStatus VerificationStatus  @default(PENDING)
+  verificationStatus VerificationStatus @default(PENDING)
   verifiedById       String?
-  verifiedBy         User?               @relation("SalesVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedBy         User?              @relation("SalesVerifiedBy", fields: [verifiedById], references: [id])
   verifiedAt         DateTime?
 
-  createdAt          DateTime            @default(now())
+  createdAt DateTime @default(now())
 }
 
 // 
-// REVIEWS (guest reviewer)
+// REVIEWS
+// Guest reviewer
 // 
 
 model Review {
-  id           String   @id @default(cuid())
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id])
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
   reviewerName String
   rating       Int
   comment      String
@@ -259,39 +257,48 @@ model Review {
 // 
 
 model Notification {
-  id                String   @id @default(cuid())
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
-  type              String
-  title             String
-  message           String
-  isRead            Boolean  @default(false)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  type    String
+  title   String
+  message String
+
+  isRead Boolean @default(false)
+
   relatedEntityType String?
   relatedEntityId   String?
-  createdAt         DateTime @default(now())
+
+  createdAt DateTime @default(now())
 
   @@index([userId, isRead])
 }
 
 // 
-// GALLERY & CONTENT (Admin-managed)
+// GALLERY & CONTENT
+// Admin-managed
 // 
 
 model GalleryItem {
-  id           String   @id @default(cuid())
-  imageUrl     String
-  caption      String?
+  id       String @id @default(cuid())
+  imageUrl String
+  caption  String?
+
   uploadedById String
-  uploadedBy   User     @relation("GalleryUploadedBy", fields: [uploadedById], references: [id])
-  createdAt    DateTime @default(now())
+  uploadedBy   User @relation("GalleryUploadedBy", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model ContentBlock {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  title       String?
-  body        String
+  id    String @id @default(cuid())
+  key   String @unique
+  title String?
+  body  String
+
   updatedById String
-  updatedBy   User     @relation("ContentUpdatedBy", fields: [updatedById], references: [id])
-  updatedAt   DateTime @updatedAt
+  updatedBy   User @relation("ContentUpdatedBy", fields: [updatedById], references: [id])
+
+  updatedAt DateTime @updatedAt
 }
