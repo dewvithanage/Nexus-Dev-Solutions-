@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// Categories from the approved Figma design (Home page "Featured Categories").
 const categories = [
   { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
   { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
@@ -23,6 +24,9 @@ async function main() {
 
   console.log(`Seeded ${categories.length} categories.`);
 
+  // ---------------------------------------------------------------
+  // DEMO ENTREPRENEUR + DEMO ORDER
+  // ---------------------------------------------------------------
   const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
   if (!demoCategory) return;
 
@@ -36,10 +40,10 @@ async function main() {
       passwordHash: demoPasswordHash,
       role: "ENTREPRENEUR",
       name: "Sarah Perera",
-      phone: "+94711703009",
+      phone: "+94771234567",
       entrepreneurProfile: {
         create: {
-          whatsappNumber: "+94711703009",
+          whatsappNumber: "+94771234567",
           status: "APPROVED",
           business: { create: { businessName: "Stanford Wool" } },
         },
@@ -75,20 +79,17 @@ async function main() {
       id: "demo-order-1024",
       businessId: business.id,
       buyerName: "Imesha Hansani",
-      buyerPhone: "+94711703009",
+      buyerPhone: "+94770001111",
       deliveryLocation: "Stanford Green Library main entrance",
       totalAmount: 1500,
       items: { create: { productId: demoProduct.id, quantity: 1, unitPriceAtOrder: 1500 } },
     },
   });
 
-  // NOTE: demo images now live in /public/images/ (NOT /public/uploads/),
-  // because /public/uploads/ is gitignored (it's meant for real user
-  // uploads, not permanent project assets) — these demo photos need to
-  // actually be committed to the repo so the whole team sees them.
-  // Real photo for the demo product (uploaded by the team), so the
-  // Home page's "Trending Innovations" section has something real to
-  // show instead of an empty box.
+  // Demo images live in /public/images/ (NOT /public/uploads/), because
+  // /public/uploads/ is gitignored (meant for real user uploads, not
+  // permanent project assets) — these demo photos need to actually be
+  // committed to the repo so the whole team sees them.
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -124,11 +125,27 @@ async function main() {
     });
   }
 
+  // ---------------------------------------------------------------
+  // 3 MORE DEMO PRODUCTS — each with a real photo and review, so
+  // "Trending Innovations" on the Home page has more than one item.
+  // ---------------------------------------------------------------
   const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
   const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
   const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
+  const servicesCategory = await prisma.category.findUnique({ where: { slug: "services" } });
+  const fashionCategory = await prisma.category.findUnique({ where: { slug: "fashion-apparel" } });
 
-  const extraProducts = [
+  const extraProducts: {
+    id: string;
+    name: string;
+    description: string;
+    price: number;
+    category: { id: string } | null;
+    imageUrl?: string;
+    reviewerName: string;
+    rating: number;
+    comment: string;
+  }[] = [
     {
       id: "demo-product-planner",
       name: "Syllabus Study Planner AI",
@@ -162,6 +179,30 @@ async function main() {
       rating: 4,
       comment: "Beautiful work, captured my dog perfectly.",
     },
+    // Original illustrations (not stock photos, avoids any copyright
+    // concern) since no real photos exist for these 2 demo products yet.
+    {
+      id: "demo-product-resume",
+      name: "Resume & CV Design Service",
+      description: "Professional resume design and formatting, turned around within 48 hours.",
+      price: 500,
+      category: servicesCategory,
+      imageUrl: "/images/demo-resume.svg",
+      reviewerName: "Nadeesha Fonseka",
+      rating: 5,
+      comment: "Got interview callbacks within a week of using this resume!",
+    },
+    {
+      id: "demo-product-totebag",
+      name: "Custom Tie-Dye Tote Bag",
+      description: "Hand-dyed canvas tote bags, each one-of-a-kind, made to order.",
+      price: 850,
+      category: fashionCategory,
+      imageUrl: "/images/demo-totebag.svg",
+      reviewerName: "Ravindu Silva",
+      rating: 4,
+      comment: "Super unique, gets compliments every time I use it.",
+    },
   ];
 
   for (const item of extraProducts) {
@@ -194,23 +235,25 @@ async function main() {
       });
     }
 
-    const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
-    if (!existingImage) {
-      await prisma.productImage.create({
-        data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
-      });
-    } else {
-      await prisma.productImage.updateMany({
-        where: { productId: item.id },
-        data: { url: item.imageUrl },
-      });
+    // Only create/update the image if this product actually has one —
+    // the last 2 demo products don't, and that's fine (same as any
+    // real product before its entrepreneur uploads photos).
+    if (item.imageUrl) {
+      const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
+      if (!existingImage) {
+        await prisma.productImage.create({
+          data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
+        });
+      } else {
+        await prisma.productImage.updateMany({
+          where: { productId: item.id },
+          data: { url: item.imageUrl },
+        });
+      }
     }
   }
-  // ---------------------------------------------------------------
 
-  console.log(`Demo data ready. Test with:`);
-  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
-  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+  // ---------------------------------------------------------------
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
@@ -243,8 +286,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-
-
-
-
-  

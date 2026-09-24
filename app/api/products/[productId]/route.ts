@@ -17,6 +17,7 @@ export async function GET(
       include: {
         category: true,
         images: true,
+        reviews: true,
 reviews: true,
         business: {
           include: { entrepreneurProfile: { include: { user: true } } },

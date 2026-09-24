@@ -179,6 +179,7 @@ export default function ProductDetailsPage() {
 
             <h1 className="mt-2 text-2xl font-bold text-slate-900">{product.name}</h1>
             <p className="mt-1 text-sm text-slate-500">
+              Created by <span className="font-medium text-slate-700">{product.business.businessName}</span>
               Created by{" "}
               <Link href={`/business/${product.business.id}`} className="font-medium text-blue-600 hover:underline">
                 {product.business.businessName}

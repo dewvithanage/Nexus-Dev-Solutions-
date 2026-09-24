@@ -36,27 +36,52 @@ const categoryIcons: Record<string, LucideIcon> = {
   palette: Palette,
 };
 
+// Small helper: fetch, but if it fails (slow/dropped connection), wait a
+// moment and try one more time before giving up. This is what stops a
+// single network hiccup from leaving the page looking permanently empty.
+async function fetchWithRetry(url: string, retries = 1): Promise<Response> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    return response;
+  } catch (error) {
+    if (retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      return fetchWithRetry(url, retries - 1);
+    }
+    throw error;
+  }
+}
+
 export default function HomePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [trendingProducts, setTrendingProducts] = useState<ProductCardData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [loadingTrending, setLoadingTrending] = useState(true);
+  const [hadError, setHadError] = useState(false);
 
   useEffect(() => {
     async function loadHomeData() {
       try {
-        const [categoriesResponse, productsResponse] = await Promise.all([
-          fetch("/api/categories"),
-          fetch("/api/marketplace/products?featured=true"),
-        ]);
+        const categoriesResponse = await fetchWithRetry("/api/categories");
         const categoriesData = await categoriesResponse.json();
-        const productsData = await productsResponse.json();
-
-        if (categoriesResponse.ok) setCategories(categoriesData.categories);
-        if (productsResponse.ok) setTrendingProducts(productsData.products);
+        setCategories(categoriesData.categories);
       } catch (error) {
-        console.error("Load home page data error:", error);
+        console.error("Load categories error:", error);
+        setHadError(true);
       } finally {
-        setLoading(false);
+        setLoadingCategories(false);
+      }
+
+      try {
+        const productsResponse = await fetchWithRetry("/api/marketplace/products?featured=true");
+        const productsData = await productsResponse.json();
+        setTrendingProducts(productsData.products);
+      } catch (error) {
+        console.error("Load trending products error:", error);
+        setHadError(true);
+      } finally {
+        setLoadingTrending(false);
       }
     }
 
@@ -68,38 +93,46 @@ export default function HomePage() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 px-6 py-16 md:grid-cols-2">
-          <div>
-            <h1 className="text-4xl font-bold leading-tight text-slate-900">
-              Discover Student-Made Products &amp; Services
-            </h1>
-            <p className="mt-4 text-sm leading-6 text-slate-500">
-              A specialized marketplace showcasing handcrafted merchandise, innovative
-              digital tools, custom bakes, and professional services engineered
-              entirely by university entrepreneurs.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <Link
-                href="/marketplace"
-                className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-              >
-                Browse Marketplace
-              </Link>
-              <Link
-                href="/about"
-                className="rounded-md border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                Learn More
-              </Link>
+        {/* Hero — full-bleed background photo (Ken Burns zoom) with a
+            dark gradient overlay so the white text stays readable on
+            top of it, replacing the earlier two-column text/photo layout. */}
+        <section className="relative isolate flex h-[520px] items-center overflow-hidden">
+          <img
+            src="/images/home-hero.png"
+            alt="Startup Spark — student entrepreneurs"
+            className="animate-kenburns absolute inset-0 h-full w-full object-cover"
+          />
+          {/* Dark gradient overlay — darkest on the left where the text
+              sits, fading out toward the right so the photo still shows
+              through. Without this, white text would be unreadable
+              against a bright photo. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
+
+          <div className="relative z-10 mx-auto w-full max-w-6xl px-6">
+            <div className="animate-fade-in-up max-w-xl">
+              <h1 className="text-4xl font-bold leading-tight text-white drop-shadow-sm">
+                Discover Student-Made Products &amp; Services
+              </h1>
+              <p className="mt-4 text-sm leading-6 text-slate-100">
+                A specialized marketplace showcasing handcrafted merchandise, innovative
+                digital tools, custom bakes, and professional services engineered
+                entirely by university entrepreneurs.
+              </p>
+              <div className="mt-6 flex gap-3">
+                <Link
+                  href="/marketplace"
+                  className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition hover:scale-105 hover:bg-blue-700"
+                >
+                  Browse Marketplace
+                </Link>
+                <Link
+                  href="/about"
+                  className="rounded-md border border-white/70 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition hover:scale-105 hover:bg-white/20"
+                >
+                  Learn More
+                </Link>
+              </div>
             </div>
-          </div>
-          <div className="overflow-hidden rounded-xl">
-            <img
-              src="/images/home-hero.png"
-              alt="Startup Spark — student entrepreneurs"
-              className="h-64 w-full rounded-xl object-cover"
-            />
           </div>
         </section>
 
@@ -111,22 +144,39 @@ export default function HomePage() {
               Explore the diverse range of creative items built around campus schedules.
             </p>
 
-            <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-              {categories.map((category) => {
-                const Icon = (category.icon && categoryIcons[category.icon]) || Hand;
-                return (
-                  <Link
-                    key={category.id}
-                    href={`/categories/${category.slug}`}
-                    className="rounded-xl border border-slate-200 bg-white p-5 text-center transition hover:border-blue-300 hover:shadow-sm"
-                  >
-                    <Icon size={22} className="mx-auto text-blue-600" />
-                    <p className="mt-3 text-sm font-semibold text-slate-800">{category.name}</p>
-                    <p className="mt-1 text-xs text-slate-400">{category.productCount} Products</p>
-                  </Link>
-                );
-              })}
-            </div>
+            {loadingCategories ? (
+              <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-[104px] animate-pulse rounded-xl border border-slate-200 bg-slate-100"
+                  />
+                ))}
+              </div>
+            ) : categories.length === 0 ? (
+              <p className="mt-6 text-sm text-slate-500">
+                {hadError
+                  ? "Couldn't load categories — check your connection and refresh the page."
+                  : "No categories yet."}
+              </p>
+            ) : (
+              <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+                {categories.map((category) => {
+                  const Icon = (category.icon && categoryIcons[category.icon]) || Hand;
+                  return (
+                    <Link
+                      key={category.id}
+                      href={`/categories/${category.slug}`}
+                      className="rounded-xl border border-slate-200 bg-white p-5 text-center transition hover:border-blue-300 hover:shadow-sm"
+                    >
+                      <Icon size={22} className="mx-auto text-blue-600" />
+                      <p className="mt-3 text-sm font-semibold text-slate-800">{category.name}</p>
+                      <p className="mt-1 text-xs text-slate-400">{category.productCount} Products</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </section>
 
@@ -147,16 +197,32 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading...</p>
+          {loadingTrending ? (
+            <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="aspect-square w-full rounded-xl bg-slate-100" />
+                  <div className="mt-3 h-3 w-2/3 rounded bg-slate-100" />
+                  <div className="mt-2 h-4 w-full rounded bg-slate-100" />
+                </div>
+              ))}
+            </div>
           ) : trendingProducts.length === 0 ? (
             <p className="text-sm text-slate-500">
-              No trending products yet — check back once more products are approved and reviewed.
+              {hadError
+                ? "Couldn't load trending products — check your connection and refresh the page."
+                : "No trending products yet — check back once more products are approved and reviewed."}
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-5 md:grid-cols-4">
-              {trendingProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+              {trendingProducts.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="animate-fade-in-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <ProductCard product={product} />
+                </div>
               ))}
             </div>
           )}
