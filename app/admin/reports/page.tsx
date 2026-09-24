@@ -23,6 +23,7 @@ const barColors = ["#2563EB", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#EC48
 export default function ReportsAnalyticsPage() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/reports")
@@ -44,12 +45,27 @@ export default function ReportsAnalyticsPage() {
   const maxCategoryRevenue = Math.max(...report.categoryRevenue.map((c) => c.revenue), 1);
   const totalCategoryRevenue = report.categoryRevenue.reduce((sum, c) => sum + c.revenue, 0);
 
+  // FIX: header search box was previously disabled here since the
+  // monthly revenue trend chart (months, not named entities) genuinely
+  // isn't something you'd "search" — but the Revenue by Category
+  // breakdown DOES have named items, so the search box now filters
+  // that section by category name.
+  const filteredCategoryRevenue = report.categoryRevenue.filter((entry) => {
+    const term = searchTerm.trim().toLowerCase();
+    return term === "" || entry.category.toLowerCase().includes(term);
+  });
+
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Executive Reports & Analytics" />
+        <DashboardHeader
+          title="Executive Reports & Analytics"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search category..."
+        />
 
         <main className="p-8">
           <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -114,9 +130,11 @@ export default function ReportsAnalyticsPage() {
               <h3 className="mb-4 text-sm font-bold text-slate-900">Revenue by Category</h3>
               {report.categoryRevenue.length === 0 ? (
                 <p className="text-xs text-slate-500">No verified sales yet to break down by category.</p>
+              ) : filteredCategoryRevenue.length === 0 ? (
+                <p className="text-xs text-slate-500">No category matches your search.</p>
               ) : (
                 <div className="space-y-3">
-                  {report.categoryRevenue.map((entry, index) => (
+                  {filteredCategoryRevenue.map((entry, index) => (
                     <div key={entry.category}>
                       <div className="mb-1 flex justify-between text-[11px]">
                         <span className="font-medium text-slate-700">{entry.category}</span>

@@ -40,6 +40,7 @@ export default function AdminNotificationsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("ALL");
   const [selected, setSelected] = useState<Notification | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadNotifications();
@@ -74,14 +75,24 @@ export default function AdminNotificationsPage() {
     }
   }
 
-  const filtered = activeTab === "ALL" ? notifications : notifications.filter((n) => n.type === activeTab);
+  const filtered = (activeTab === "ALL" ? notifications : notifications.filter((n) => n.type === activeTab)).filter(
+    (n) => {
+      const term = searchTerm.trim().toLowerCase();
+      return term === "" || n.title.toLowerCase().includes(term) || n.message.toLowerCase().includes(term);
+    }
+  );
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Admin Notification Dispatch" />
+        <DashboardHeader
+          title="Admin Notification Dispatch"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search notifications..."
+        />
 
         <main className="p-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">

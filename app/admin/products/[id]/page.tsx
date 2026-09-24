@@ -88,7 +88,7 @@ export default function AdminProductDetailsPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Product Submission Audit" />
+        <DashboardHeader title="Product Submission Audit" notificationsHref="/admin/notifications" />
 
         <main className="p-8">
           {loading ? (
