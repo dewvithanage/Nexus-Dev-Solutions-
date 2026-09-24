@@ -1,32 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
-import { saveUploadedFile } from "@/lib/upload";
+import { saveFile } from "@/lib/upload";
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
-
     const formData = await request.formData();
-    const file = formData.get("image");
-    const caption = formData.get("caption") as string | null;
+    const file = formData.get("image") as File || formData.get("file") as File;
+    const caption = formData.get("caption") as string || formData.get("title") as string || "";
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ message: "No image provided." }, { status: 400 });
+    if (!file) {
+      return NextResponse.json({ success: false, message: "No image file provided." }, { status: 400 });
     }
 
-    const url = await saveUploadedFile(file, "gallery");
+    // Save file to public/uploads/gallery
+    const imageUrl = await saveFile(file, "gallery");
 
-    const galleryItem = await prisma.galleryItem.create({
-      data: { imageUrl: url, caption, uploadedById: admin.id },
+    // Get an admin user as the uploader (fallback for database relation)
+    const adminUser = await prisma.user.findFirst({
+      where: { role: "ADMIN" },
     });
 
-    return NextResponse.json({ message: "Image added to gallery.", galleryItem }, { status: 201 });
+    if (!adminUser) {
+      return NextResponse.json({ success: false, message: "Admin user not found." }, { status: 400 });
+    }
+
+    // Create gallery item in database
+    const galleryItem = await prisma.galleryItem.create({
+      data: {
+        imageUrl,
+        caption,
+        uploadedById: adminUser.id,
+      },
+    });
+
+    return NextResponse.json({ success: true, galleryItem });
   } catch (error) {
-    console.error("Upload gallery image error:", error);
-    return NextResponse.json({ message: "Unable to upload image." }, { status: 500 });
+    console.error("Gallery upload API error:", error);
+    return NextResponse.json({ success: false, message: "Failed to save image." }, { status: 500 });
   }
 }

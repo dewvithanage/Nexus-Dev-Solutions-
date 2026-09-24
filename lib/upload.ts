@@ -1,34 +1,25 @@
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile } from "fs/promises";
 import path from "path";
-import crypto from "crypto";
+import fs from "fs";
 
-// Saves an uploaded file under /public/uploads/<subfolder>/ and returns
-// the public URL to it (anything under /public is served at the site
-// root by Next.js automatically, so no extra route is needed to view it).
-//
-// LIMITATION (documented, not a bug): this writes to the local disk,
-// which works fine for local development and a self-hosted demo, but
-// will NOT persist on serverless hosts like Vercel (their filesystem is
-// wiped between requests). If the team deploys there later, swap this
-// for a real file storage service (e.g. Vercel Blob, S3, Cloudinary).
-export async function saveUploadedFile(file: File, subfolder: string): Promise<string> {
+export async function saveFile(file: File, subfolder: string = "general"): Promise<string> {
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", subfolder);
-  await mkdir(uploadsDir, { recursive: true });
+  // Clean filename and add timestamp to avoid duplicates
+  const originalName = file.name || "file";
+  const sanitizedName = originalName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const filename = `${Date.now()}-${sanitizedName}`;
 
-  // Random filename so two people uploading "photo.jpg" never collide.
-  const extension = path.extname(file.name) || ".jpg";
-  const filename = `${crypto.randomUUID()}${extension}`;
-  const filePath = path.join(uploadsDir, filename);
+  const uploadDir = path.join(process.cwd(), "public", "uploads", subfolder);
 
+  // Ensure directory exists
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const filePath = path.join(uploadDir, filename);
   await writeFile(filePath, buffer);
 
   return `/uploads/${subfolder}/${filename}`;
-<<<<<<< HEAD
 }
-=======
-}
-}
->>>>>>> origin/Dev
