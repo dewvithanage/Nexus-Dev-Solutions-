@@ -23,7 +23,6 @@ export default function AdminGalleryManagementPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // FIX: header search box was previously decorative. Filters by caption.
   const filteredItems = items.filter((item) => {
     const term = searchTerm.trim().toLowerCase();
     return term === "" || (item.caption || "").toLowerCase().includes(term);
@@ -52,7 +51,10 @@ export default function AdminGalleryManagementPage() {
   }
 
   async function handleUpload() {
-    if (!file) return;
+    if (!file) {
+      alert("Please select an image file before saving.");
+      return;
+    }
 
     setUploading(true);
     setSuccessMessage("");
@@ -130,7 +132,7 @@ export default function AdminGalleryManagementPage() {
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={handleUpload}
-                    disabled={!file || uploading}
+                    disabled={uploading}
                     className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                   >
                     {uploading ? "Saving..." : "Save Image"}
