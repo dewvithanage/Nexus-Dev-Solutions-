@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import { isValidEmailFormat } from "@/lib/validation";
 
 type AdminLoginFormData = {
   email: string;
@@ -41,6 +42,15 @@ export default function AdminLoginForm() {
       return;
     }
 
+    // Client-side format check for immediate feedback — the server also
+    // re-checks this independently (never trust client-side validation
+    // alone), but catching an obvious typo here avoids a wasted round
+    // trip to the server.
+    if (!isValidEmailFormat(formData.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -55,6 +65,10 @@ export default function AdminLoginForm() {
       const data = await response.json();
 
       if (!response.ok) {
+        // Covers the normal "Invalid email or password" case, plus the
+        // new 429 "Too many failed login attempts" message from the
+        // server's rate limiter — both just show as-is, since the
+        // server already writes them in user-friendly language.
         setError(data.message || "Login failed.");
         return;
       }
