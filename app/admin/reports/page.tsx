@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, ShoppingBag, Users, Package } from "lucide-react";
+import { TrendingUp, ShoppingBag, Users, Package, Download } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
@@ -32,6 +32,11 @@ export default function ReportsAnalyticsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleDownloadPDF = () => {
+    // PDF download logic / print action for Monthly Sales Audit
+    window.print();
+  };
+
   if (loading || !report) {
     return (
       <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -42,14 +47,9 @@ export default function ReportsAnalyticsPage() {
   }
 
   const maxMonthlyRevenue = Math.max(...(report?.monthlyTrend?.map((m) => m.revenue) ?? [1]), 1);
-const maxCategoryRevenue = Math.max(...(report?.categoryRevenue?.map((c) => c.revenue) ?? [1]), 1);
-const totalCategoryRevenue = report?.categoryRevenue?.reduce((sum, c) => sum + c.revenue, 0) ?? 0;
+  const maxCategoryRevenue = Math.max(...(report?.categoryRevenue?.map((c) => c.revenue) ?? [1]), 1);
+  const totalCategoryRevenue = report?.categoryRevenue?.reduce((sum, c) => sum + c.revenue, 0) ?? 0;
 
-  // FIX: header search box was previously disabled here since the
-  // monthly revenue trend chart (months, not named entities) genuinely
-  // isn't something you'd "search" — but the Revenue by Category
-  // breakdown DOES have named items, so the search box now filters
-  // that section by category name.
   const filteredCategoryRevenue = report.categoryRevenue.filter((entry) => {
     const term = searchTerm.trim().toLowerCase();
     return term === "" || entry.category.toLowerCase().includes(term);
@@ -68,6 +68,20 @@ const totalCategoryRevenue = report?.categoryRevenue?.reduce((sum, c) => sum + c
         />
 
         <main className="p-8">
+          {/* Action Header with Monthly Sales Audit PDF Download Button */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-xs text-slate-500">View performance metrics and download audit records</p>
+            </div>
+            <button
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
+            >
+              <Download size={15} />
+              Monthly Sales Audit
+            </button>
+          </div>
+
           <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex justify-between">
@@ -159,6 +173,6 @@ const totalCategoryRevenue = report?.categoryRevenue?.reduce((sum, c) => sum + c
           </section>
         </main>
       </div>
-    </div>
+  </div>
   );
 }
