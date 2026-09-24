@@ -41,9 +41,9 @@ export default function ReportsAnalyticsPage() {
     );
   }
 
-  const maxMonthlyRevenue = Math.max(...report.monthlyTrend.map((m) => m.revenue), 1);
-  const maxCategoryRevenue = Math.max(...report.categoryRevenue.map((c) => c.revenue), 1);
-  const totalCategoryRevenue = report.categoryRevenue.reduce((sum, c) => sum + c.revenue, 0);
+  const maxMonthlyRevenue = Math.max(...(report?.monthlyTrend?.map((m) => m.revenue) ?? [1]), 1);
+const maxCategoryRevenue = Math.max(...(report?.categoryRevenue?.map((c) => c.revenue) ?? [1]), 1);
+const totalCategoryRevenue = report?.categoryRevenue?.reduce((sum, c) => sum + c.revenue, 0) ?? 0;
 
   // FIX: header search box was previously disabled here since the
   // monthly revenue trend chart (months, not named entities) genuinely
