@@ -1,5 +1,3 @@
-
-// Shared footer for public pages. Matches the Figma footer layout.
 // Real app-icon-style SVGs (rounded square badges matching each
 // platform's actual icon design and colors), the same way they'd
 // appear on a phone home screen or an app store listing — used here
@@ -96,7 +94,6 @@ function WhatsAppIcon() {
 
 // Shared footer for public pages. Matches the Figma footer layout,
 // with a real "Stay tuned" social links section added for Entre Club.
->>>>>>> origin/Dev
 export default function Footer() {
   const columns = [
     { title: "Marketplace", items: ["Handmade Crafts", "Tech Products", "WhatsApp Confirm", "Contact Support"] },
@@ -104,16 +101,6 @@ export default function Footer() {
     { title: "For Students", items: ["Handmade Crafts", "Tech Products", "WhatsApp Confirm", "Contact Support"] },
     { title: "Company", items: ["Handmade Crafts", "Tech Products", "WhatsApp Confirm", "Contact Support"] },
   ];
-
-
-  return (
-    <footer className="mt-auto bg-[#0D1B33] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-12">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-5">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2">
-              <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-7 w-7 rounded" />
-              <span className="text-base font-bold">StartupSpark</span>
 
   const socialLinks = [
     { icon: YouTubeIcon, label: "YouTube", url: "https://youtube.com/@entreclubfhss?si=fda1qkjTJl9x0XP8" },
@@ -132,7 +119,6 @@ export default function Footer() {
             <div className="flex items-center gap-2">
               <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-11 w-11 rounded" />
               <span className="text-lg font-bold">StartupSpark</span>
-
             </div>
             <p className="mt-3 max-w-xs text-xs text-slate-400">
               The ultimate student entrepreneur marketplace. Discover, support, and
@@ -153,8 +139,6 @@ export default function Footer() {
             </div>
           ))}
         </div>
-
-        <div className="mt-10 border-t border-white/10 pt-6 text-xs text-slate-500">
 
         {/* Stay tuned / social links — real Entre Club accounts,
             shown as colorful circular icon buttons so they actually
@@ -186,7 +170,6 @@ export default function Footer() {
         </div>
 
         <div className="mt-8 border-t border-white/10 pt-6 text-xs text-slate-500">
-
           © 2026 Startup Spark Inc.
         </div>
       </div>

@@ -4,9 +4,6 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import Link from "next/link";
-
-
 import Input from "../ui/Input";
 import Button from "../ui/Button";
 
@@ -94,20 +91,9 @@ export default function EntrepreneurLoginForm() {
           Remember me
         </label>
 
-<<<<<<< HEAD
-
-        <button type="button" className="font-medium text-blue-600 hover:underline">
-          Forgot Password?
-        </button>
         <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
           Forgot Password?
         </Link>
-
-=======
-        <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
-          Forgot Password?
-        </Link>
->>>>>>> origin/Dev
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
