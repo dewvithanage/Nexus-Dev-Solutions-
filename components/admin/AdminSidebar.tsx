@@ -45,7 +45,7 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="flex h-screen w-[230px] shrink-0 flex-col bg-[#0D1B33] px-4 py-5 text-white">
+    <aside className="sticky top-0 flex h-screen w-[230px] shrink-0 flex-col bg-[#0D1B33] px-4 py-5 text-white">
       <Link href="/" className="mb-8 flex items-center gap-3 rounded-md px-2 py-1 transition hover:bg-[#162A49]">
         <img
           src="/images/startup-spark-logo.png"
