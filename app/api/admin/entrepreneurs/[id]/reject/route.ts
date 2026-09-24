@@ -26,6 +26,7 @@ export async function PATCH(
       },
     });
 
+    // FIX: this route previously did NOT create a notification at all.
     await prisma.notification.create({
       data: {
         userId: entrepreneur.userId,
