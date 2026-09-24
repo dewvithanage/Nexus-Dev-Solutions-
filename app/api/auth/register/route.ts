@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     // Notify every admin that a new registration needs review — this is
     // what populates the "Registrations" tab on Admin Notifications.
     const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+
     if (admins.length > 0) {
       await prisma.notification.createMany({
         data: admins.map((admin) => ({

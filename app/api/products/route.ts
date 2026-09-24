@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
+
     // Notify every admin that a new product needs review — populates the
     // "Product Alerts" tab on Admin Notifications.
     const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
