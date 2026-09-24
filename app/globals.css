@@ -3,8 +3,6 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* Also used for the /public/uploads/ gitignore rule and the contrast fix
-     added earlier — input, textarea, select { background: white; color: #0f172a } */
 }
 
 @theme inline {
@@ -14,12 +12,14 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* FIX: this app has no actual dark theme designed anywhere — removed
+   the leftover Next.js default dark-mode media query, which flipped
+   --foreground to near-white (#ededed) whenever the user's OS was set
+   to dark mode. Any text relying on inherited body color (rather than
+   an explicit Tailwind color class) — like the quantity selector
+   buttons on Product Details and Cart — became nearly invisible
+   against the white cards for anyone using dark mode at the OS level.
+   Colors now always stay in light mode regardless of OS preference. */
 
 body {
   background: var(--background);
@@ -27,58 +27,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Same reasoning as above — form fields need an explicit light
+   background/dark text regardless of OS dark-mode preference, since
+   this app has no dark theme built for them either. */
 input, textarea, select {
   background-color: white;
   color: #0f172a;
-}
-
-/* ---------------------------------------------------------------
-   Home page hero animations. No real video was available, so this
-   gives the static hero photo a slow "Ken Burns" style zoom (like a
-   documentary pan/zoom) instead, plus a gentle fade-in-up for the
-   text content, so the page feels alive without needing a video file.
---------------------------------------------------------------- */
-@keyframes kenburns {
-  0% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(1.12);
-  }
-}
-
-.animate-kenburns {
-  animation: kenburns 18s ease-in-out infinite alternate;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.8s ease-out both;
-}
-
-.animate-fade-in-up-delay {
-  animation: fadeInUp 0.8s ease-out 0.15s both;
-}
-
-@keyframes floatSlow {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-.animate-float-slow {
-  animation: floatSlow 5s ease-in-out infinite;
 }

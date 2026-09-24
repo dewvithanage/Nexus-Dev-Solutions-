@@ -180,10 +180,6 @@ export default function ProductDetailsPage() {
             <h1 className="mt-2 text-2xl font-bold text-slate-900">{product.name}</h1>
             <p className="mt-1 text-sm text-slate-500">
               Created by <span className="font-medium text-slate-700">{product.business.businessName}</span>
-              Created by{" "}
-              <Link href={`/business/${product.business.id}`} className="font-medium text-blue-600 hover:underline">
-                {product.business.businessName}
-              </Link>
             </p>
 
             <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
@@ -191,9 +187,9 @@ export default function ProductDetailsPage() {
               <div className="flex items-center gap-3 text-sm">
                 <span className="text-slate-500">Quantity:</span>
                 <div className="flex items-center rounded-md border border-slate-300">
-                  <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 py-1">-</button>
-                  <span className="px-3">{quantity}</span>
-                  <button onClick={() => setQuantity((q) => Math.min(product.stockQuantity, q + 1))} className="px-3 py-1">+</button>
+                  <button onClick={() => setQuantity((q) => Math.max(1, q - 1))} className="px-3 py-1 font-semibold text-blue-600">-</button>
+                  <span className="px-3 font-semibold text-blue-600">{quantity}</span>
+                  <button onClick={() => setQuantity((q) => Math.min(product.stockQuantity, q + 1))} className="px-3 py-1 font-semibold text-blue-600">+</button>
                 </div>
               </div>
             </div>
