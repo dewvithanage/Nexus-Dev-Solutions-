@@ -77,15 +77,6 @@ export default function EntrepreneurRegisterForm() {
         onChange={handleChange}
       />
 
- Himasha
-      <Input
-        label="University Email"
-        name="email"
-        type="email"
-        value={formData.email}
-        placeholder="Enter university email"
-        onChange={handleChange}
-      />
 
       <div>
         <Input
@@ -102,7 +93,7 @@ export default function EntrepreneurRegisterForm() {
           Only FHSS student emails are accepted right now (format: ar123456@fhss.sjp.ac.lk)
         </p>
       </div>
- Dev
+
 
       <Input
         label="Contact Number"
