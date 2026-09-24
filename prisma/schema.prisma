@@ -123,10 +123,6 @@ model Business {
 // 
 
 model Category {
-<<<<<<< HEAD
-=======
- Himasha
->>>>>>> origin/Dev
   id          String    @id @default(cuid())
   name        String    @unique
   slug        String    @unique
@@ -134,17 +130,6 @@ model Category {
   description String?
   products    Product[]
   createdAt   DateTime  @default(now())
-<<<<<<< HEAD
-=======
-
-  id        String    @id @default(cuid())
-  name      String    @unique
-  slug      String    @unique
-  icon      String?
-  products  Product[]
-  createdAt DateTime  @default(now())
- Dev
->>>>>>> origin/Dev
 }
 
 model Product {
@@ -166,6 +151,7 @@ model Product {
 
   status          ProductStatus  @default(PENDING)
   rejectionReason String?
+  adminNotes      String?
   reviewedById    String?
   reviewedBy      User?          @relation("ProductReviewedBy", fields: [reviewedById], references: [id])
   reviewedAt      DateTime?
