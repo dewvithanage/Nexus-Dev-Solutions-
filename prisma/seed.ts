@@ -14,6 +14,7 @@ const categories = [
 ];
 
 async function main() {
+  // Seed categories
   for (const category of categories) {
     await prisma.category.upsert({
       where: { slug: category.slug },
@@ -25,13 +26,24 @@ async function main() {
   console.log(`Seeded ${categories.length} categories.`);
 
   // ---------------------------------------------------------------
+<<<<<<< HEAD
+  // DEMO DATA
+  // Lets the team test Reviews and WhatsApp Confirmation
+  // without waiting for admin approval pages.
+=======
   // DEMO ENTREPRENEUR + DEMO ORDER
+>>>>>>> origin/Dev
   // ---------------------------------------------------------------
-  const demoCategory = await prisma.category.findUnique({ where: { slug: "handmade-crafts" } });
+
+  const demoCategory = await prisma.category.findUnique({
+    where: { slug: "handmade-crafts" },
+  });
+
   if (!demoCategory) return;
 
   const demoPasswordHash = await bcrypt.hash("Demo@1234", 10);
 
+  // Create demo entrepreneur
   const demoUser = await prisma.user.upsert({
     where: { email: "demo.entrepreneur@fhss.sjp.ac.lk" },
     update: {},
@@ -45,16 +57,28 @@ async function main() {
         create: {
           whatsappNumber: "+94771234567",
           status: "APPROVED",
-          business: { create: { businessName: "Stanford Wool" } },
+          business: {
+            create: {
+              businessName: "Stanford Wool",
+            },
+          },
         },
       },
     },
-    include: { entrepreneurProfile: { include: { business: true } } },
+    include: {
+      entrepreneurProfile: {
+        include: {
+          business: true,
+        },
+      },
+    },
   });
 
   const business = demoUser.entrepreneurProfile?.business;
+
   if (!business) return;
 
+  // Create demo product
   const demoProduct = await prisma.product.upsert({
     where: { id: "demo-product-cardigan" },
     update: {},
@@ -72,6 +96,7 @@ async function main() {
     },
   });
 
+  // Create demo order
   const demoOrder = await prisma.order.upsert({
     where: { id: "demo-order-1024" },
     update: {},
@@ -82,17 +107,28 @@ async function main() {
       buyerPhone: "+94770001111",
       deliveryLocation: "Stanford Green Library main entrance",
       totalAmount: 1500,
-      items: { create: { productId: demoProduct.id, quantity: 1, unitPriceAtOrder: 1500 } },
+      items: {
+        create: {
+          productId: demoProduct.id,
+          quantity: 1,
+          unitPriceAtOrder: 1500,
+        },
+      },
     },
   });
 
+<<<<<<< HEAD
+  // Add a real demo product image
+=======
   // Demo images live in /public/images/ (NOT /public/uploads/), because
   // /public/uploads/ is gitignored (meant for real user uploads, not
   // permanent project assets) — these demo photos need to actually be
   // committed to the repo so the whole team sees them.
+>>>>>>> origin/Dev
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
+
   if (!existingDemoImage) {
     await prisma.productImage.create({
       data: {
@@ -108,24 +144,28 @@ async function main() {
     });
   }
 
-  // A demo review — "Trending" only shows products with a 4+ star
-  // average, so without at least one good review the demo product
-  // would never actually appear there.
+  // Add a demo review
   const existingDemoReview = await prisma.review.findFirst({
     where: { productId: demoProduct.id },
   });
+
   if (!existingDemoReview) {
     await prisma.review.create({
       data: {
         productId: demoProduct.id,
         reviewerName: "Sithu De Silva",
         rating: 5,
-        comment: "This sweater is literally the softest thing I own. Picked it up right outside the campus library.",
+        comment:
+          "This sweater is literally the softest thing I own. Picked it up right outside the campus library.",
       },
     });
   }
 
   // ---------------------------------------------------------------
+<<<<<<< HEAD
+  // ADMIN ACCOUNT
+  // Admins are created through the seed instead of self-registration.
+=======
   // 3 MORE DEMO PRODUCTS — each with a real photo and review, so
   // "Trending Innovations" on the Home page has more than one item.
   // ---------------------------------------------------------------
@@ -257,7 +297,9 @@ async function main() {
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
+>>>>>>> origin/Dev
   // ---------------------------------------------------------------
+
   const adminPasswordHash = await bcrypt.hash("Admin@1234", 10);
 
   await prisma.user.upsert({
@@ -273,9 +315,17 @@ async function main() {
 
   console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
 
+<<<<<<< HEAD
+  console.log("Demo data ready. Test with:");
+  console.log(`  Reviews page: /products/${demoProduct.id}/reviews`);
+  console.log(
+    `  Order confirmation: /order-confirmation/${demoOrder.id}`
+  );
+=======
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
+>>>>>>> origin/Dev
 }
 
 main()
