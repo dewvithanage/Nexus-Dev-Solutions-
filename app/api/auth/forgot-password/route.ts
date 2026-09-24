@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 
@@ -8,59 +9,94 @@ import { sendPasswordResetEmail } from "@/lib/email";
 // aren't set up yet (e.g. a teammate hasn't configured their .env), this
 // falls back to returning the link directly in the response so the app
 // still works end-to-end during development.
+
+
+import { prisma } from "@/lib/prisma";
+import { sendPasswordResetEmail } from "@/lib/email";
+
+
 export async function POST(request: NextRequest) {
   try {
-    const { email } = (await request.json()) as { email?: string };
+    const { email } = (await request.json()) as {
+      email?: string;
+    };
 
     if (!email) {
-      return NextResponse.json({ message: "Email is required." }, { status: 400 });
+      return NextResponse.json(
+        { message: "Email is required." },
+        { status: 400 }
+      );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-    // Always respond the same way whether or not the email exists, so
-    // nobody can use this form to check which emails are registered.
     if (!user) {
       return NextResponse.json({
+
         message: "If that email is registered, a reset link has been sent to it.",
+
+        message:
+          "If that email is registered, a reset link has been sent to it.",
+
         sentViaEmail: true,
         resetLink: null,
       });
     }
 
     const token = crypto.randomBytes(32).toString("hex");
-    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+
+    const oneHourFromNow = new Date(
+      Date.now() + 60 * 60 * 1000
+    );
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { resetToken: token, resetTokenExpiry: oneHourFromNow },
+      data: {
+        resetToken: token,
+        resetTokenExpiry: oneHourFromNow,
+      },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const resetLink = `${appUrl}/entrepreneur/reset-password?token=${token}`;
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "http://localhost:3000";
+
+    const resetLink =
+      `${appUrl}/entrepreneur/reset-password?token=${token}`;
 
     try {
-      await sendPasswordResetEmail(user.email, resetLink);
-      // Real email sent successfully — don't leak the link in the API
-      // response, since it would defeat the purpose of emailing it.
+      await sendPasswordResetEmail(
+        user.email,
+        resetLink
+      );
+
       return NextResponse.json({
-        message: "A password reset link has been sent to your email.",
+        message:
+          "A password reset link has been sent to your email.",
         sentViaEmail: true,
         resetLink: null,
       });
     } catch (emailError) {
-      // Email isn't configured yet on this machine, or sending failed —
-      // fall back to showing the link on screen so development isn't
-      // blocked. Logs the real reason on the server for debugging.
-      console.warn("Email sending failed, falling back to on-screen link:", emailError);
+      console.warn(
+        "Email sending failed:",
+        emailError
+      );
+
       return NextResponse.json({
-        message: "Email isn't configured on this server yet — showing the reset link directly instead:",
+        message:
+          "Email could not be sent. Showing the reset link for development.",
         sentViaEmail: false,
         resetLink,
       });
     }
   } catch (error) {
     console.error("Forgot password error:", error);
-    return NextResponse.json({ message: "Internal server error." }, { status: 500 });
+
+    return NextResponse.json(
+      { message: "Internal server error." },
+      { status: 500 }
+    );
   }
 }

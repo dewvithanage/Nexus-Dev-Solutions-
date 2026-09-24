@@ -73,14 +73,14 @@ export default function ShoppingCartPage() {
                         <div className="flex items-center rounded-md border border-slate-300">
                           <button
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            className="px-2.5 py-1 text-sm"
+                            className="px-2.5 py-1 text-sm font-semibold text-blue-600"
                           >
                             -
                           </button>
-                          <span className="px-3 text-sm">{item.quantity}</span>
+                          <span className="px-3 text-sm font-semibold text-blue-600">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            className="px-2.5 py-1 text-sm"
+                            className="px-2.5 py-1 text-sm font-semibold text-blue-600"
                           >
                             +
                           </button>
@@ -117,5 +117,3 @@ export default function ShoppingCartPage() {
     </div>
   );
 }
-
-

@@ -69,6 +69,26 @@ export async function PATCH(
       postingEnabled?: boolean;
     };
 
+    // FIX: stockQuantity was previously written straight to the database
+    // with no validation at all — negative numbers, decimals, and even
+    // non-numeric values could all be saved. This is the authoritative
+    // check: the frontend check below is just for a faster/friendlier
+    // error message, but this is what actually protects the database,
+    // since a request can always be sent directly (bypassing the UI).
+    if (stockQuantity !== undefined) {
+      if (
+        typeof stockQuantity !== "number" ||
+        Number.isNaN(stockQuantity) ||
+        !Number.isInteger(stockQuantity) ||
+        stockQuantity < 0
+      ) {
+        return NextResponse.json(
+          { message: "Stock quantity must be a whole number greater than or equal to 0." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Editing a rejected product and saving puts it back into the review
     // queue — that's what "Resubmit" means on the Submission Status page.
     // An already-approved product edited here goes back to PENDING too,

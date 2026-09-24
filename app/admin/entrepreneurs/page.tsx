@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
@@ -19,33 +19,34 @@ type EntrepreneurRow = {
   appliedAt: string;
 };
 
+type TabKey = "ACTIVE" | "REJECTED";
+
 export default function EntrepreneurManagementPage() {
   const [entrepreneurs, setEntrepreneurs] = useState<EntrepreneurRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabKey>("ACTIVE");
   const [searchTerm, setSearchTerm] = useState("");
   const [universityFilter, setUniversityFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadEntrepreneurs() {
-      try {
-        // No ?status= filter here — Management shows EVERYONE, unlike
-        // the Approval queue which defaults to just PENDING.
-        const response = await fetch("/api/admin/entrepreneurs");
-        const data = await response.json();
-        if (response.ok) setEntrepreneurs(data.entrepreneurs);
-      } catch (error) {
-        console.error("Load entrepreneurs error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadEntrepreneurs();
   }, []);
 
-  // Build the filter dropdown options from whatever data actually exists,
-  // instead of hardcoding a list that might not match reality.
+  async function loadEntrepreneurs() {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/admin/entrepreneurs");
+      const data = await response.json();
+      if (response.ok) setEntrepreneurs(data.entrepreneurs);
+    } catch (error) {
+      console.error("Load entrepreneurs error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const universities = useMemo(
     () => ["All", ...new Set(entrepreneurs.map((e) => e.university).filter(Boolean) as string[])],
     [entrepreneurs]
@@ -55,18 +56,53 @@ export default function EntrepreneurManagementPage() {
     [entrepreneurs]
   );
 
+  // FIX: rejected entrepreneurs previously sat in the same list as
+  // everyone else, distinguished only by a small status badge — easy to
+  // miss and cluttering the main working view. Now split into two tabs,
+  // matching the same pattern used on Product Management and Sales
+  // Verification.
+  const rejectedCount = entrepreneurs.filter((e) => e.status === "REJECTED").length;
+
   const filtered = entrepreneurs.filter((entrepreneur) => {
+    const matchesTab =
+      activeTab === "REJECTED" ? entrepreneur.status === "REJECTED" : entrepreneur.status !== "REJECTED";
     const matchesSearch =
       !searchTerm ||
       entrepreneur.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       entrepreneur.businessName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesUniversity =
-      universityFilter === "All" || entrepreneur.university === universityFilter;
-    const matchesCategory =
-      categoryFilter === "All" || entrepreneur.primaryCategory === categoryFilter;
+    const matchesUniversity = universityFilter === "All" || entrepreneur.university === universityFilter;
+    const matchesCategory = categoryFilter === "All" || entrepreneur.primaryCategory === categoryFilter;
 
-    return matchesSearch && matchesUniversity && matchesCategory;
+    return matchesTab && matchesSearch && matchesUniversity && matchesCategory;
   });
+
+  // NEW: permanently delete an entrepreneur. The backend blocks this
+  // and returns a clear reason if any of their products have real order
+  // history, so that error message is shown as-is.
+  async function handleDelete(entrepreneur: EntrepreneurRow) {
+    const confirmed = window.confirm(
+      `Permanently delete "${entrepreneur.fullName}" and their business "${entrepreneur.businessName}"? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(entrepreneur.id);
+    try {
+      const response = await fetch(`/api/admin/entrepreneurs/${entrepreneur.id}`, { method: "DELETE" });
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Unable to delete this entrepreneur.");
+        return;
+      }
+
+      setEntrepreneurs((current) => current.filter((e) => e.id !== entrepreneur.id));
+    } catch (error) {
+      console.error("Delete entrepreneur error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -81,18 +117,32 @@ export default function EntrepreneurManagementPage() {
         />
 
         <main className="p-8">
+          {/* Tabs: Active vs Rejected */}
+          <div className="mb-5 flex gap-1 border-b border-slate-200">
+            <button
+              onClick={() => setActiveTab("ACTIVE")}
+              className={`px-4 py-2.5 text-xs font-semibold ${
+                activeTab === "ACTIVE"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Active Entrepreneurs
+            </button>
+            <button
+              onClick={() => setActiveTab("REJECTED")}
+              className={`px-4 py-2.5 text-xs font-semibold ${
+                activeTab === "REJECTED"
+                  ? "border-b-2 border-red-600 text-red-600"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Rejected ({rejectedCount})
+            </button>
+          </div>
+
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-2">
-                <Search size={14} className="text-slate-400" />
-                <input
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search database..."
-                  className="w-40 bg-transparent text-xs text-slate-700 outline-none"
-                />
-              </div>
-
               <select
                 value={universityFilter}
                 onChange={(event) => setUniversityFilter(event.target.value)}
@@ -130,7 +180,9 @@ export default function EntrepreneurManagementPage() {
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading entrepreneurs...</p>
             ) : filtered.length === 0 ? (
-              <p className="p-8 text-sm text-slate-500">No entrepreneurs match your filters.</p>
+              <p className="p-8 text-sm text-slate-500">
+                {activeTab === "REJECTED" ? "No rejected entrepreneurs." : "No entrepreneurs match your filters."}
+              </p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
@@ -143,6 +195,7 @@ export default function EntrepreneurManagementPage() {
                     <th className="px-5 py-3">Sales Volume</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3">Join Date</th>
+                    <th className="px-5 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -157,13 +210,11 @@ export default function EntrepreneurManagementPage() {
                         </Link>
                       </td>
                       <td className="px-5 py-4">{entrepreneur.university || "—"}</td>
-                      <td className="px-5 py-4 font-medium text-blue-600">
-                        {entrepreneur.businessName}
-                      </td>
+                      <td className="px-5 py-4 font-medium text-blue-600">{entrepreneur.businessName}</td>
                       <td className="px-5 py-4">{entrepreneur.primaryCategory}</td>
                       <td className="px-5 py-4">{entrepreneur.productCount} Products</td>
                       <td className="px-5 py-4 font-semibold text-slate-800">
-                        Rs.{entrepreneur.salesVolume.toFixed(2)}
+                        Rs.{Number(entrepreneur.salesVolume).toFixed(2)}
                       </td>
                       <td className="px-5 py-4">
                         <span
@@ -175,11 +226,22 @@ export default function EntrepreneurManagementPage() {
                               : "bg-amber-100 text-amber-600"
                           }`}
                         >
-                          {entrepreneur.status === "APPROVED" ? "Active" : entrepreneur.status}
+                          {entrepreneur.status}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-slate-400">
                         {new Date(entrepreneur.appliedAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-5 py-4">
+                        <button
+                          onClick={() => handleDelete(entrepreneur)}
+                          disabled={deletingId === entrepreneur.id}
+                          title="Permanently delete this entrepreneur"
+                          className="flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <Trash2 size={12} />
+                          {deletingId === entrepreneur.id ? "Deleting..." : "Delete"}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -189,7 +251,7 @@ export default function EntrepreneurManagementPage() {
           </div>
 
           <p className="mt-3 text-xs text-slate-400">
-            Showing {filtered.length} of {entrepreneurs.length} registered sellers
+            Showing {filtered.length} {activeTab === "REJECTED" ? "rejected" : "active"} entrepreneur(s)
           </p>
         </main>
       </div>
