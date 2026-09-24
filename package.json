@@ -18,17 +18,9 @@
     "jose": "^5.9.6",
     "lucide-react": "^0.470.0",
     "next": "15.1.4",
-    "package.json": "^2.0.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-<<<<<<< HEAD
-
-
     "resend": "^6.28.1",
-
-=======
-    "resend": "^6.28.1",
->>>>>>> origin/Dev
     "zod": "^3.24.1"
   },
   "devDependencies": {
