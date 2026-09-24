@@ -95,12 +95,19 @@ export async function POST(request: NextRequest) {
       },
     });
 
+
+ Himasha
+    // Notify every admin that a new registration needs review — this is
+    // what populates the "Registrations" tab on Admin Notifications.
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+
     // Notify admins about the new registration.
     const admins = await prisma.user.findMany({
       where: {
         role: "ADMIN",
       },
     });
+
 
     if (admins.length > 0) {
       await prisma.notification.createMany({
@@ -117,6 +124,9 @@ export async function POST(request: NextRequest) {
         })),
       });
     }
+
+
+
 
     return NextResponse.json(
       {

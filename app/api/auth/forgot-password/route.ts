@@ -4,6 +4,17 @@ import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 
+// Generates a password reset token valid for 1 hour, and tries to email it
+// to the user via Gmail (see lib/email.ts). If EMAIL_USER/EMAIL_APP_PASSWORD
+// aren't set up yet (e.g. a teammate hasn't configured their .env), this
+// falls back to returning the link directly in the response so the app
+// still works end-to-end during development.
+
+
+import { prisma } from "@/lib/prisma";
+import { sendPasswordResetEmail } from "@/lib/email";
+
+
 export async function POST(request: NextRequest) {
   try {
     const { email } = (await request.json()) as {
@@ -23,8 +34,12 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({
+
+        message: "If that email is registered, a reset link has been sent to it.",
+
         message:
           "If that email is registered, a reset link has been sent to it.",
+
         sentViaEmail: true,
         resetLink: null,
       });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, ShoppingBag, Users, Package } from "lucide-react";
+import { TrendingUp, ShoppingBag, Users, Package, Download } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
@@ -24,6 +24,8 @@ export default function ReportsAnalyticsPage() {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [downloading, setDownloading] = useState(false);
+  const [downloadingEntrepreneurPdf, setDownloadingEntrepreneurPdf] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/reports")
@@ -31,6 +33,54 @@ export default function ReportsAnalyticsPage() {
       .then((data) => setReport(data))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleDownloadPdf = async () => {
+    try {
+      setDownloading(true);
+      const res = await fetch("/api/admin/reports/monthly-sales-audit");
+      if (!res.ok) {
+        throw new Error("Failed to download PDF report");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "monthly-sales-audit.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("PDF download error:", error);
+      alert("Monthly Sales Audit PDF generation or download failed.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const handleDownloadEntrepreneurPdf = async () => {
+    try {
+      setDownloadingEntrepreneurPdf(true);
+      const res = await fetch("/api/admin/reports/entrepreneur-directory");
+      if (!res.ok) {
+        throw new Error("Failed to download Entrepreneur Directory PDF");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `entrepreneur-directory-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("PDF download error:", error);
+      alert("Entrepreneur Directory PDF generation or download failed.");
+    } finally {
+      setDownloadingEntrepreneurPdf(false);
+    }
+  };
 
   if (loading || !report) {
     return (
@@ -45,11 +95,6 @@ export default function ReportsAnalyticsPage() {
   const maxCategoryRevenue = Math.max(...report.categoryRevenue.map((c) => c.revenue), 1);
   const totalCategoryRevenue = report.categoryRevenue.reduce((sum, c) => sum + c.revenue, 0);
 
-  // FIX: header search box was previously disabled here since the
-  // monthly revenue trend chart (months, not named entities) genuinely
-  // isn't something you'd "search" — but the Revenue by Category
-  // breakdown DOES have named items, so the search box now filters
-  // that section by category name.
   const filteredCategoryRevenue = report.categoryRevenue.filter((entry) => {
     const term = searchTerm.trim().toLowerCase();
     return term === "" || entry.category.toLowerCase().includes(term);
@@ -68,6 +113,28 @@ export default function ReportsAnalyticsPage() {
         />
 
         <main className="p-8">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-bold text-slate-900">Platform Performance Overview</h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloading}
+                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Download size={15} />
+                {downloading ? "Generating..." : "Monthly Sales Audit"}
+              </button>
+              <button
+                onClick={handleDownloadEntrepreneurPdf}
+                disabled={downloadingEntrepreneurPdf}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <Download size={15} />
+                {downloadingEntrepreneurPdf ? "Generating..." : "Entrepreneur Directory Summary"}
+              </button>
+            </div>
+          </div>
+
           <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex justify-between">

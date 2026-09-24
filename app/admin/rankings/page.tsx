@@ -46,10 +46,6 @@ export default function EntrepreneurRankingsPage() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  // FIX: header search box was previously decorative. Filtering the
-  // whole list (before splitting into podium/table below) so a search
-  // narrows both consistently, rather than leaving a stale podium while
-  // only the table below it changes.
   const searchedRankings = rankings.filter((entry) => {
     const term = searchTerm.trim().toLowerCase();
     if (term === "") return true;
@@ -104,8 +100,9 @@ export default function EntrepreneurRankingsPage() {
           ) : (
             <>
               <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                {podium.map((entry) => {
-                  const style = podiumStyle[entry.rank];
+                {podium.map((entry, index) => {
+                  const currentRank = index + 1;
+                  const style = podiumStyle[currentRank] || podiumStyle[3];
                   return (
                     <div key={entry.businessId} className={`rounded-xl border-2 bg-white p-5 ${style.border}`}>
                       <div className="flex items-center justify-between">
@@ -113,7 +110,7 @@ export default function EntrepreneurRankingsPage() {
                           <Trophy size={14} /> {style.label}
                         </span>
                         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${style.badge}`}>
-                          Rank #{entry.rank}
+                          Rank #{currentRank}
                         </span>
                       </div>
                       <p className="mt-3 text-base font-bold text-slate-900">{entry.entrepreneurName}</p>

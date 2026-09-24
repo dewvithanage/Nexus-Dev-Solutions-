@@ -94,10 +94,14 @@ export default function EntrepreneurLoginForm() {
           Remember me
         </label>
 
+
+        <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
+
         <Link
           href="/entrepreneur/forgot-password"
           className="font-medium text-blue-600 hover:underline"
         >
+
           Forgot Password?
         </Link>
       </div>

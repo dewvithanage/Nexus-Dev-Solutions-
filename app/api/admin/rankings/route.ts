@@ -48,8 +48,7 @@ export async function GET(request: NextRequest) {
           averageRating: averageRating ? Number(averageRating.toFixed(1)) : null,
         };
       })
-      // Only rank businesses that have actually made at least one verified sale.
-      .filter((entry) => entry.salesCount > 0)
+      // Sales zero hone par bhi businesses ko list karne ke liye filter hata diya gaya hai
       .sort((a, b) => b.revenue - a.revenue)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
