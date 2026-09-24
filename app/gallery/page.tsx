@@ -46,7 +46,7 @@ export default function GalleryPage() {
         ) : items.length === 0 ? (
           <div className="mt-8 rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
             No gallery images yet. Once an admin uploads some (Admin Gallery
-            Management), they'll appear here.
+            Management), they&apos;ll appear here.
           </div>
         ) : (
           <div className="mt-8 columns-1 gap-4 sm:columns-2 lg:columns-3">
