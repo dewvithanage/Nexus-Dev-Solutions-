@@ -4,9 +4,6 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-import Link from "next/link";
-
-
 import Input from "../ui/Input";
 import Button from "../ui/Button";
 
@@ -28,7 +25,11 @@ export default function EntrepreneurLoginForm() {
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
-    setFormData((previousData) => ({ ...previousData, [name]: value }));
+
+    setFormData((previousData) => ({
+      ...previousData,
+      [name]: value,
+    }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -45,7 +46,9 @@ export default function EntrepreneurLoginForm() {
 
       const response = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(formData),
       });
 
@@ -56,9 +59,6 @@ export default function EntrepreneurLoginForm() {
         return;
       }
 
-      // The server already set an httpOnly session cookie in the
-      // response — there's nothing for us to store here. The browser
-      // will send that cookie automatically on the next request.
       router.push("/entrepreneur/dashboard");
     } catch (error) {
       console.error("Login request error:", error);
@@ -94,25 +94,19 @@ export default function EntrepreneurLoginForm() {
           Remember me
         </label>
 
-<<<<<<< HEAD
-
-        <button type="button" className="font-medium text-blue-600 hover:underline">
-          Forgot Password?
-        </button>
-        <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
+        <Link
+          href="/entrepreneur/forgot-password"
+          className="font-medium text-blue-600 hover:underline"
+        >
           Forgot Password?
         </Link>
-
-=======
-        <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
-          Forgot Password?
-        </Link>
->>>>>>> origin/Dev
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
-      <Button type="submit">{loading ? "Logging in..." : "Login"}</Button>
+      <Button type="submit">
+        {loading ? "Logging in..." : "Login"}
+      </Button>
     </form>
   );
 }

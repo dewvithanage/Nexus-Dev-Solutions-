@@ -81,10 +81,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/Dev
     return NextResponse.json(
       { message: "Product submitted for admin review.", product },
       { status: 201 }

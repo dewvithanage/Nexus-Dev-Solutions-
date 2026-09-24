@@ -113,11 +113,7 @@ export default function ReviewFormPage() {
                   value={reviewerName}
                   onChange={(event) => setReviewerName(event.target.value)}
                   placeholder="Enter your full name (e.g. Sithu De Silva)"
-<<<<<<< HEAD
-                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
-=======
-                  className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-600"
->>>>>>> origin/Dev
+className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
                 />
               </div>
 

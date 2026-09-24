@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-// Categories from the approved Figma design (Home page "Featured Categories").
+// Categories from the approved Figma design
 const categories = [
   { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
   { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
@@ -26,13 +26,8 @@ async function main() {
   console.log(`Seeded ${categories.length} categories.`);
 
   // ---------------------------------------------------------------
-<<<<<<< HEAD
   // DEMO DATA
-  // Lets the team test Reviews and WhatsApp Confirmation
-  // without waiting for admin approval pages.
-=======
-  // DEMO ENTREPRENEUR + DEMO ORDER
->>>>>>> origin/Dev
+  // Lets the team test Reviews and WhatsApp Confirmation.
   // ---------------------------------------------------------------
 
   const demoCategory = await prisma.category.findUnique({
@@ -117,14 +112,7 @@ async function main() {
     },
   });
 
-<<<<<<< HEAD
-  // Add a real demo product image
-=======
-  // Demo images live in /public/images/ (NOT /public/uploads/), because
-  // /public/uploads/ is gitignored (meant for real user uploads, not
-  // permanent project assets) — these demo photos need to actually be
-  // committed to the repo so the whole team sees them.
->>>>>>> origin/Dev
+  // Demo product image
   const existingDemoImage = await prisma.productImage.findFirst({
     where: { productId: demoProduct.id },
   });
@@ -162,18 +150,28 @@ async function main() {
   }
 
   // ---------------------------------------------------------------
-<<<<<<< HEAD
-  // ADMIN ACCOUNT
-  // Admins are created through the seed instead of self-registration.
-=======
-  // 3 MORE DEMO PRODUCTS — each with a real photo and review, so
-  // "Trending Innovations" on the Home page has more than one item.
+  // Additional demo products
   // ---------------------------------------------------------------
-  const techCategory = await prisma.category.findUnique({ where: { slug: "tech-digital" } });
-  const foodCategory = await prisma.category.findUnique({ where: { slug: "food-beverages" } });
-  const artCategory = await prisma.category.findUnique({ where: { slug: "art" } });
-  const servicesCategory = await prisma.category.findUnique({ where: { slug: "services" } });
-  const fashionCategory = await prisma.category.findUnique({ where: { slug: "fashion-apparel" } });
+
+  const techCategory = await prisma.category.findUnique({
+    where: { slug: "tech-digital" },
+  });
+
+  const foodCategory = await prisma.category.findUnique({
+    where: { slug: "food-beverages" },
+  });
+
+  const artCategory = await prisma.category.findUnique({
+    where: { slug: "art" },
+  });
+
+  const servicesCategory = await prisma.category.findUnique({
+    where: { slug: "services" },
+  });
+
+  const fashionCategory = await prisma.category.findUnique({
+    where: { slug: "fashion-apparel" },
+  });
 
   const extraProducts: {
     id: string;
@@ -189,7 +187,8 @@ async function main() {
     {
       id: "demo-product-planner",
       name: "Syllabus Study Planner AI",
-      description: "An AI-powered study planner that organizes your syllabus into a daily schedule.",
+      description:
+        "An AI-powered study planner that organizes your syllabus into a daily schedule.",
       price: 1200,
       category: techCategory,
       imageUrl: "/images/demo-planner.png",
@@ -200,7 +199,8 @@ async function main() {
     {
       id: "demo-product-cookies",
       name: "Fresh Matcha Cookies",
-      description: "Handmade matcha cookies baked fresh daily using ceremonial grade green tea.",
+      description:
+        "Handmade matcha cookies baked fresh daily using ceremonial grade green tea.",
       price: 270,
       category: foodCategory,
       imageUrl: "/images/demo-cookies.png",
@@ -211,7 +211,8 @@ async function main() {
     {
       id: "demo-product-portrait",
       name: "Custom Pet Watercolor Portraits",
-      description: "A hand-painted watercolor portrait of your pet, made to order.",
+      description:
+        "A hand-painted watercolor portrait of your pet, made to order.",
       price: 700,
       category: artCategory,
       imageUrl: "/images/demo-portrait.png",
@@ -219,29 +220,31 @@ async function main() {
       rating: 4,
       comment: "Beautiful work, captured my dog perfectly.",
     },
-    // Original illustrations (not stock photos, avoids any copyright
-    // concern) since no real photos exist for these 2 demo products yet.
     {
       id: "demo-product-resume",
       name: "Resume & CV Design Service",
-      description: "Professional resume design and formatting, turned around within 48 hours.",
+      description:
+        "Professional resume design and formatting, turned around within 48 hours.",
       price: 500,
       category: servicesCategory,
       imageUrl: "/images/demo-resume.svg",
       reviewerName: "Nadeesha Fonseka",
       rating: 5,
-      comment: "Got interview callbacks within a week of using this resume!",
+      comment:
+        "Got interview callbacks within a week of using this resume!",
     },
     {
       id: "demo-product-totebag",
       name: "Custom Tie-Dye Tote Bag",
-      description: "Hand-dyed canvas tote bags, each one-of-a-kind, made to order.",
+      description:
+        "Hand-dyed canvas tote bags, each one-of-a-kind, made to order.",
       price: 850,
       category: fashionCategory,
       imageUrl: "/images/demo-totebag.svg",
       reviewerName: "Ravindu Silva",
       rating: 4,
-      comment: "Super unique, gets compliments every time I use it.",
+      comment:
+        "Super unique, gets compliments every time I use it.",
     },
   ];
 
@@ -263,7 +266,10 @@ async function main() {
       },
     });
 
-    const existingReview = await prisma.review.findFirst({ where: { productId: item.id } });
+    const existingReview = await prisma.review.findFirst({
+      where: { productId: item.id },
+    });
+
     if (!existingReview) {
       await prisma.review.create({
         data: {
@@ -275,14 +281,18 @@ async function main() {
       });
     }
 
-    // Only create/update the image if this product actually has one —
-    // the last 2 demo products don't, and that's fine (same as any
-    // real product before its entrepreneur uploads photos).
     if (item.imageUrl) {
-      const existingImage = await prisma.productImage.findFirst({ where: { productId: item.id } });
+      const existingImage = await prisma.productImage.findFirst({
+        where: { productId: item.id },
+      });
+
       if (!existingImage) {
         await prisma.productImage.create({
-          data: { productId: item.id, url: item.imageUrl, sortOrder: 0 },
+          data: {
+            productId: item.id,
+            url: item.imageUrl,
+            sortOrder: 0,
+          },
         });
       } else {
         await prisma.productImage.updateMany({
@@ -294,10 +304,8 @@ async function main() {
   }
 
   // ---------------------------------------------------------------
-  // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
-  // screens (admins aren't meant to self-sign-up), so we create the
-  // first admin account here instead. Log in with these at /admin/login.
->>>>>>> origin/Dev
+  // ADMIN ACCOUNT
+  // Admins are created through the seed instead of self-registration.
   // ---------------------------------------------------------------
 
   const adminPasswordHash = await bcrypt.hash("Admin@1234", 10);
@@ -313,19 +321,15 @@ async function main() {
     },
   });
 
-  console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
+  console.log(
+    "Seeded admin account: admin@startupspark.lk / Admin@1234"
+  );
 
-<<<<<<< HEAD
   console.log("Demo data ready. Test with:");
   console.log(`  Reviews page: /products/${demoProduct.id}/reviews`);
   console.log(
     `  Order confirmation: /order-confirmation/${demoOrder.id}`
   );
-=======
-  console.log(`Demo data ready. Test with:`);
-  console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
-  console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
->>>>>>> origin/Dev
 }
 
 main()
