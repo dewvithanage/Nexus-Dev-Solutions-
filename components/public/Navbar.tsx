@@ -2,14 +2,15 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Search, ShoppingCart } from "lucide-react";
 
 import { useCart } from "@/lib/cart-context";
 
 // Shared navbar for public pages (Home, Marketplace, Categories, Gallery,
-// About, Product Details). "use client" because it needs the cart count
-// and the search box's interactivity.
+// About, Product Details). "use client" because it needs the cart count,
+// the search box's interactivity, and the current page (to highlight the
+// active nav tab).
 //
 // Responsive approach: rather than hiding nav links or buttons at
 // certain widths (which either loses functionality or still overlaps
@@ -19,6 +20,7 @@ import { useCart } from "@/lib/cart-context";
 // hidden or cut off, at any window width.
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { totalItemCount } = useCart();
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -29,8 +31,25 @@ export default function Navbar() {
     }
   }
 
+  // "/" only counts as active on the exact Home page; every other link
+  // also stays highlighted on its own sub-pages (e.g. /marketplace/search
+  // still highlights "Marketplace", /categories/art still highlights
+  // "Categories").
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+  }
+
+  const navLinks = [
+    { href: "/", label: "Home" },
+    { href: "/marketplace", label: "Marketplace" },
+    { href: "/categories", label: "Categories" },
+    { href: "/gallery", label: "Gallery" },
+    { href: "/about", label: "About" },
+  ];
+
   return (
-    <header className="border-b border-slate-200 bg-gradient-to-r from-indigo-200 via-fuchsia-100 to-orange-200">
+    <header className="border-b border-slate-200 bg-gradient-to-r from-blue-200 via-white to-orange-200">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-y-2 gap-x-4 px-6 py-3">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           <img src="/images/startup-spark-logo.png" alt="StartupSpark" className="h-10 w-10 rounded" />
@@ -40,11 +59,19 @@ export default function Navbar() {
         </Link>
 
         <nav className="order-3 flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-sm font-medium text-slate-600 md:order-none md:w-auto">
-          <Link href="/" className="hover:text-slate-900">Home</Link>
-          <Link href="/marketplace" className="hover:text-slate-900">Marketplace</Link>
-          <Link href="/categories" className="hover:text-slate-900">Categories</Link>
-          <Link href="/gallery" className="hover:text-slate-900">Gallery</Link>
-          <Link href="/about" className="hover:text-slate-900">About</Link>
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={
+                isActive(link.href)
+                  ? "border-b-2 border-blue-600 pb-0.5 font-semibold text-blue-600"
+                  : "border-b-2 border-transparent pb-0.5 hover:text-slate-900"
+              }
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="flex shrink-0 items-center gap-2">
