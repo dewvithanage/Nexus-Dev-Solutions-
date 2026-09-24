@@ -73,7 +73,7 @@ export default function ProductApprovalPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Product Submission Approvals" />
+        <DashboardHeader title="Product Submission Approvals" notificationsHref="/admin/notifications" />
 
         <main className="p-8">
           <div className="mb-5 flex gap-2">

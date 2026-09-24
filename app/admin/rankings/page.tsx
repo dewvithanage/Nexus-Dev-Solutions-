@@ -36,6 +36,7 @@ export default function EntrepreneurRankingsPage() {
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
   const [period, setPeriod] = useState<PeriodKey>("month");
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     setLoading(true);
@@ -45,15 +46,33 @@ export default function EntrepreneurRankingsPage() {
       .finally(() => setLoading(false));
   }, [period]);
 
-  const podium = rankings.slice(0, 3);
-  const rest = rankings.slice(3);
+  // FIX: header search box was previously decorative. Filtering the
+  // whole list (before splitting into podium/table below) so a search
+  // narrows both consistently, rather than leaving a stale podium while
+  // only the table below it changes.
+  const searchedRankings = rankings.filter((entry) => {
+    const term = searchTerm.trim().toLowerCase();
+    if (term === "") return true;
+    return (
+      entry.entrepreneurName.toLowerCase().includes(term) ||
+      entry.businessName.toLowerCase().includes(term)
+    );
+  });
+
+  const podium = searchedRankings.slice(0, 3);
+  const rest = searchedRankings.slice(3);
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Venture Leaderboard Rankings" />
+        <DashboardHeader
+          title="Venture Leaderboard Rankings"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search entrepreneur or business..."
+        />
 
         <main className="p-8">
           <div className="mb-6 flex gap-2">
@@ -77,6 +96,10 @@ export default function EntrepreneurRankingsPage() {
           ) : rankings.length === 0 ? (
             <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
               No verified sales in this period yet.
+            </div>
+          ) : searchedRankings.length === 0 ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
+              No entrepreneurs match your search.
             </div>
           ) : (
             <>

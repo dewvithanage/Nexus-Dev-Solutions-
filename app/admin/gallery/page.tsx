@@ -21,6 +21,13 @@ export default function AdminGalleryManagementPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // FIX: header search box was previously decorative. Filters by caption.
+  const filteredItems = items.filter((item) => {
+    const term = searchTerm.trim().toLowerCase();
+    return term === "" || (item.caption || "").toLowerCase().includes(term);
+  });
 
   useEffect(() => {
     loadGallery();
@@ -81,7 +88,12 @@ export default function AdminGalleryManagementPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Gallery Management" />
+        <DashboardHeader
+          title="Gallery Management"
+          notificationsHref="/admin/notifications"
+          onSearch={setSearchTerm}
+          searchPlaceholder="Search by caption..."
+        />
 
         <main className="p-8">
           <h1 className="mb-1 text-lg font-bold text-slate-900">Manage public gallery images</h1>
@@ -149,6 +161,8 @@ export default function AdminGalleryManagementPage() {
               <p className="p-8 text-sm text-slate-500">Loading gallery...</p>
             ) : items.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No images uploaded yet.</p>
+            ) : filteredItems.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">No images match your search.</p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
@@ -160,7 +174,7 @@ export default function AdminGalleryManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {items.map((item) => (
+                  {filteredItems.map((item) => (
                     <tr key={item.id} className="text-[12px] text-slate-600">
                       <td className="px-5 py-3">
                         <div className="h-12 w-12 overflow-hidden rounded-md bg-slate-100">

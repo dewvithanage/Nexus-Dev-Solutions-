@@ -35,6 +35,32 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [stockError, setStockError] = useState("");
+
+  // FIX: this is the shared rule used both live (as the user types) and
+  // again on submit — a whole number, 0 or greater. Returns an error
+  // message string, or "" if the value is valid.
+  function validateStockQuantity(rawValue: string): string {
+    if (rawValue.trim() === "") {
+      return "Stock quantity is required.";
+    }
+    const parsed = Number(rawValue);
+    if (Number.isNaN(parsed)) {
+      return "Stock quantity must be a valid number.";
+    }
+    if (!Number.isInteger(parsed)) {
+      return "Stock quantity must be a whole number greater than or equal to 0.";
+    }
+    if (parsed < 0) {
+      return "Stock quantity cannot be negative.";
+    }
+    return "";
+  }
+
+  function handleStockChange(rawValue: string) {
+    setForm({ ...form, stockQuantity: rawValue });
+    setStockError(validateStockQuantity(rawValue));
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -98,6 +124,16 @@ export default function EditProductPage() {
 
     if (!form.name || !form.categoryId || !form.price || !form.description || !form.stockQuantity) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    // FIX: block submission entirely on an invalid stock quantity —
+    // matches the same rule the server enforces, so the user sees the
+    // problem immediately instead of waiting for a round trip.
+    const stockValidationMessage = validateStockQuantity(form.stockQuantity);
+    if (stockValidationMessage) {
+      setStockError(stockValidationMessage);
+      setError(stockValidationMessage);
       return;
     }
 
@@ -276,10 +312,15 @@ export default function EditProductPage() {
                 </label>
                 <input
                   type="number"
+                  min="0"
+                  step="1"
                   value={form.stockQuantity}
-                  onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })}
-                  className="w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-blue-600"
+                  onChange={(e) => handleStockChange(e.target.value)}
+                  className={`w-full rounded-md border px-3 py-2.5 text-sm outline-none focus:border-blue-600 ${
+                    stockError ? "border-red-400" : "border-slate-300"
+                  }`}
                 />
+                {stockError && <p className="mt-1.5 text-xs text-red-600">{stockError}</p>}
               </section>
 
               {error && (
@@ -295,7 +336,7 @@ export default function EditProductPage() {
                 </Link>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !!stockError}
                   className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {saving ? "Updating..." : "Update Product"}

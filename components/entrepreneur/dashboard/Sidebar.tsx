@@ -8,10 +8,10 @@ import {
   UserRound,
   Package,
   CirclePlus,
-  ListChecks,
   TrendingUp,
   Bell,
   LogOut,
+  ExternalLink,
 } from "lucide-react";
 
 const menuItems = [
@@ -19,7 +19,6 @@ const menuItems = [
   { name: "Business Profile", href: "/entrepreneur/profile", icon: UserRound },
   { name: "My Products", href: "/entrepreneur/products", icon: Package },
   { name: "Add Product", href: "/entrepreneur/products/add", icon: CirclePlus },
-  { name: "Submission Status", href: "/entrepreneur/products/status", icon: ListChecks },
   { name: "Sales & Orders", href: "/entrepreneur/orders", icon: TrendingUp },
   { name: "Notifications", href: "/entrepreneur/notifications", icon: Bell },
 ];
@@ -59,14 +58,14 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-screen w-[230px] shrink-0 flex-col bg-[#0D1B33] px-4 py-5 text-white">
-      <div className="mb-8 flex items-center gap-3 px-2">
+      <Link href="/" className="mb-8 flex items-center gap-3 rounded-md px-2 py-1 transition hover:bg-[#162A49]">
         <img
           src="/images/startup-spark-logo.png"
           alt="StartupSpark Logo"
           className="h-9 w-9 rounded object-cover"
         />
         <span className="text-[16px] font-bold text-white">StartupSpark</span>
-      </div>
+      </Link>
 
       <nav className="flex flex-col gap-2">
         {menuItems.map((item) => {
@@ -87,6 +86,20 @@ export default function Sidebar() {
             </Link>
           );
         })}
+
+        {/* FIX: there was previously no way to get back to the public
+            site from the entrepreneur portal at all. Opens in a new tab
+            so the entrepreneur's current page/form state isn't lost
+            either way. */}
+        <a
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 flex h-[44px] items-center gap-4 rounded-md border-t border-[#1E2E4A] px-4 pt-3 text-[13px] text-[#8FA0BA] transition hover:bg-[#162A49] hover:text-white"
+        >
+          <ExternalLink size={17} strokeWidth={1.8} />
+          <span>View Public Site</span>
+        </a>
       </nav>
 
       <div className="mt-auto">

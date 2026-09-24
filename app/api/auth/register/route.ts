@@ -82,10 +82,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+<<<<<<< HEAD
+=======
  Himasha
+>>>>>>> origin/Dev
     // Notify every admin that a new registration needs review — this is
     // what populates the "Registrations" tab on Admin Notifications.
     const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+
     if (admins.length > 0) {
       await prisma.notification.createMany({
         data: admins.map((admin) => ({
@@ -99,8 +103,11 @@ export async function POST(request: NextRequest) {
       });
     }
 
+<<<<<<< HEAD
+=======
 
  Dev
+>>>>>>> origin/Dev
     return NextResponse.json(
       {
         message: "Registration successful. Your account is pending admin approval.",

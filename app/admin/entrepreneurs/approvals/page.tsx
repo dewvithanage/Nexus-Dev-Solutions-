@@ -57,7 +57,7 @@ export default function EntrepreneurRegistrationApprovalPage() {
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <DashboardHeader title="Pending Registrations Queue" />
+        <DashboardHeader title="Pending Registrations Queue" notificationsHref="/admin/notifications" />
 
         <main className="p-8">
           <div className="mb-5 flex gap-2">
