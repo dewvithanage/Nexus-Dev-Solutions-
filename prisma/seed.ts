@@ -36,10 +36,10 @@ async function main() {
       passwordHash: demoPasswordHash,
       role: "ENTREPRENEUR",
       name: "Sarah Perera",
-      phone: "+94771234567",
+      phone: "+94711703009",
       entrepreneurProfile: {
         create: {
-          whatsappNumber: "+94771234567",
+          whatsappNumber: "+94711703009",
           status: "APPROVED",
           business: { create: { businessName: "Stanford Wool" } },
         },
@@ -75,7 +75,7 @@ async function main() {
       id: "demo-order-1024",
       businessId: business.id,
       buyerName: "Imesha Hansani",
-      buyerPhone: "+94770001111",
+      buyerPhone: "+94711703009",
       deliveryLocation: "Stanford Green Library main entrance",
       totalAmount: 1500,
       items: { create: { productId: demoProduct.id, quantity: 1, unitPriceAtOrder: 1500 } },
@@ -86,7 +86,6 @@ async function main() {
   // because /public/uploads/ is gitignored (it's meant for real user
   // uploads, not permanent project assets) — these demo photos need to
   // actually be committed to the repo so the whole team sees them.
- Himasha
   // Real photo for the demo product (uploaded by the team), so the
   // Home page's "Trending Innovations" section has something real to
   // show instead of an empty box.
@@ -105,12 +104,6 @@ async function main() {
     await prisma.productImage.updateMany({
       where: { productId: demoProduct.id },
       data: { url: "/images/demo-cardigan.png" },
-    });
-  }
-
-        url: "/uploads/products/demo-cardigan.png",
-        sortOrder: 0,
-      },
     });
   }
 
@@ -218,7 +211,6 @@ async function main() {
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
- Dev
   // ADMIN ACCOUNT — there's no "Admin Registration" page in the 42
   // screens (admins aren't meant to self-sign-up), so we create the
   // first admin account here instead. Log in with these at /admin/login.
@@ -237,13 +229,10 @@ async function main() {
   });
 
   console.log("Seeded admin account: admin@startupspark.lk / Admin@1234");
- Himasha
 
   console.log(`Demo data ready. Test with:`);
   console.log(`  Reviews page:  /products/${demoProduct.id}/reviews`);
   console.log(`  Order confirmation: /order-confirmation/${demoOrder.id}`);
-
- Dev
 }
 
 main()
