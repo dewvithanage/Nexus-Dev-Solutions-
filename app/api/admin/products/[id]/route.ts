@@ -36,6 +36,48 @@ export async function GET(
   }
 }
 
+// NEW: admin changes a product's category directly. This exists mainly
+// so an admin can move a product out of a category that needs deleting
+// (Category Management blocks deletion while any product still
+// references it) — the entrepreneur who owns the product could also do
+// this themselves via Edit Product, but this lets an admin handle it
+// immediately without needing to contact them.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const admin = await getCurrentUser();
+    if (!admin || admin.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const body = await request.json();
+    const { categoryId } = body as { categoryId?: string };
+
+    if (!categoryId) {
+      return NextResponse.json({ message: "categoryId is required." }, { status: 400 });
+    }
+
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      return NextResponse.json({ message: "That category doesn't exist." }, { status: 400 });
+    }
+
+    const product = await prisma.product.update({
+      where: { id },
+      data: { categoryId },
+      include: { category: true },
+    });
+
+    return NextResponse.json({ message: "Category updated.", product });
+  } catch (error) {
+    console.error("Change product category error:", error);
+    return NextResponse.json({ message: "Unable to update category." }, { status: 500 });
+  }
+}
+
 // NEW: permanently delete a product.
 //
 // SAFETY CHECK: a product that has ever been ordered has OrderItem

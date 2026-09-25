@@ -18,13 +18,15 @@ type ProductDetails = {
   adminNotes: string | null;
   createdAt: string;
   reviewedAt: string | null;
-  category: { name: string };
+  category: { id: string; name: string };
   images: { id: string; url: string }[];
   business: {
     businessName: string;
     entrepreneurProfile: { university: string | null; user: { name: string } };
   };
 };
+
+type CategoryOption = { id: string; name: string };
 
 export default function AdminProductDetailsPage() {
   const params = useParams<{ id: string }>();
@@ -35,6 +37,16 @@ export default function AdminProductDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categorySaved, setCategorySaved] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((response) => response.json())
+      .then((data) => setCategories(data.categories || []));
+  }, []);
 
   useEffect(() => {
     loadProduct();
@@ -48,6 +60,7 @@ export default function AdminProductDetailsPage() {
       if (response.ok) {
         setProduct(data.product);
         setNotes(data.product.adminNotes || "");
+        setSelectedCategoryId(data.product.category.id);
       }
     } catch (error) {
       console.error("Load product details error:", error);
@@ -81,6 +94,37 @@ export default function AdminProductDetailsPage() {
     });
     setNotesSaved(true);
     setTimeout(() => setNotesSaved(false), 2000);
+  }
+
+  // NEW: lets an admin move this product to a different category
+  // directly — mainly useful for clearing a category out before
+  // deleting it, without needing the entrepreneur to do it themselves.
+  async function handleSaveCategory() {
+    if (!selectedCategoryId || selectedCategoryId === product?.category.id) return;
+
+    setCategorySaving(true);
+    try {
+      const response = await fetch(`/api/admin/products/${params.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ categoryId: selectedCategoryId }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Unable to update category.");
+        return;
+      }
+
+      await loadProduct();
+      setCategorySaved(true);
+      setTimeout(() => setCategorySaved(false), 2000);
+    } catch (error) {
+      console.error("Change category error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setCategorySaving(false);
+    }
   }
 
   return (
@@ -167,7 +211,29 @@ export default function AdminProductDetailsPage() {
                       </div>
                       <div>
                         <p className="text-xs text-slate-400">Category</p>
-                        <p className="text-sm font-semibold text-slate-800">{product.category.name}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <select
+                            value={selectedCategoryId}
+                            onChange={(event) => setSelectedCategoryId(event.target.value)}
+                            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-800"
+                          >
+                            {categories.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                {category.name}
+                              </option>
+                            ))}
+                          </select>
+                          {selectedCategoryId !== product.category.id && (
+                            <button
+                              onClick={handleSaveCategory}
+                              disabled={categorySaving}
+                              className="rounded-md bg-blue-600 px-2.5 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                            >
+                              {categorySaving ? "Saving..." : "Save"}
+                            </button>
+                          )}
+                          {categorySaved && <span className="text-[10px] text-emerald-600">Saved!</span>}
+                        </div>
                       </div>
                       <div>
                         <p className="text-xs text-slate-400">Initial Inventory</p>

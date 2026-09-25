@@ -64,8 +64,6 @@ export default function Navbar() {
         </Link>
 
 
-        <nav className="order-3 flex w-full flex-wrap items-center gap-x-5 gap-y-1 text-sm font-medium text-slate-600 md:order-none md:w-auto">
-
         <nav className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-1 text-sm font-medium text-slate-600 md:order-none md:w-auto">
 
           {navLinks.map((link) => (
