@@ -95,8 +95,6 @@ export default function EntrepreneurLoginForm() {
         </label>
 
 
-        <Link href="/entrepreneur/forgot-password" className="font-medium text-blue-600 hover:underline">
-
         <Link
           href="/entrepreneur/forgot-password"
           className="font-medium text-blue-600 hover:underline"
