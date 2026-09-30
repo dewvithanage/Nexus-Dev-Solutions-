@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Upload, Trash2 } from "lucide-react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { Plus, Trash2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import Pagination from "@/components/admin/Pagination";
 
-type GalleryItem = {
-  id: string;
-  imageUrl: string;
-  caption: string | null;
-  createdAt: string;
-};
+type GalleryItem = { id: string; imageUrl: string; caption: string | null; createdAt: string };
+type PaginationInfo = { currentPage: number; totalPages: number; totalCount: number };
 
 export default function AdminGalleryManagementPage() {
   const [items, setItems] = useState<GalleryItem[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
@@ -22,27 +20,35 @@ export default function AdminGalleryManagementPage() {
   const [uploading, setUploading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadItems();
+  }, [page]);
+
+  async function loadItems() {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/admin/gallery?page=${page}`);
+      const data = await response.json();
+      if (response.ok) {
+        setItems(data.items);
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error("Load gallery error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const filteredItems = items.filter((item) => {
     const term = searchTerm.trim().toLowerCase();
     return term === "" || (item.caption || "").toLowerCase().includes(term);
   });
 
-  useEffect(() => {
-    loadGallery();
-  }, []);
-
-  async function loadGallery() {
-    try {
-      const response = await fetch("/api/gallery");
-      const data = await response.json();
-      if (response.ok) setItems(data.galleryItems);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const selected = event.target.files?.[0];
     if (selected) {
       setFile(selected);
@@ -50,38 +56,57 @@ export default function AdminGalleryManagementPage() {
     }
   }
 
-  async function handleUpload() {
-    if (!file) {
-      alert("Please select an image file before saving.");
-      return;
-    }
+  async function handleUpload(event: FormEvent) {
+    event.preventDefault();
+    if (!file) return;
 
     setUploading(true);
-    setSuccessMessage("");
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("caption", caption);
 
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("caption", caption);
+      const response = await fetch("/api/admin/gallery", { method: "POST", body: formData });
+      const data = await response.json();
 
-    const response = await fetch("/api/admin/gallery", { method: "POST", body: formData });
+      if (!response.ok) {
+        alert(data.message || "Unable to upload image.");
+        return;
+      }
 
-    if (response.ok) {
       setFile(null);
       setPreviewUrl(null);
       setCaption("");
-      setSuccessMessage("Image successfully added to the public gallery! Refresh public client views to inspect.");
-      await loadGallery();
+      setSuccessMessage("Image uploaded successfully!");
+      setTimeout(() => setSuccessMessage(""), 2500);
+      setPage(1);
+      loadItems();
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
     }
-
-    setUploading(false);
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Remove this image from the gallery?")) return;
+  async function handleDelete(item: GalleryItem) {
+    const confirmed = window.confirm("Remove this image from the gallery?");
+    if (!confirmed) return;
 
-    const response = await fetch(`/api/admin/gallery/${id}`, { method: "DELETE" });
-    if (response.ok) {
-      setItems((previous) => previous.filter((item) => item.id !== id));
+    setDeletingId(item.id);
+    try {
+      const response = await fetch(`/api/admin/gallery/${item.id}`, { method: "DELETE" });
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.message || "Unable to delete this image.");
+        return;
+      }
+      loadItems();
+    } catch (error) {
+      console.error("Delete gallery item error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -98,65 +123,38 @@ export default function AdminGalleryManagementPage() {
         />
 
         <main className="p-8">
-          <h1 className="mb-1 text-lg font-bold text-slate-900">Manage public gallery images</h1>
-          <p className="mb-5 text-xs text-slate-500">
-            Photos here appear on the public /gallery page for all visitors to see.
-          </p>
-
-          <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="mb-4 text-sm font-bold text-slate-900">Upload New Moment</h2>
-
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
-              <label className="flex h-40 cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-blue-300 bg-blue-50/40">
+          <form onSubmit={handleUpload} className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+            <h2 className="mb-3 text-sm font-bold text-slate-900">Upload New Image</h2>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="flex h-24 w-24 cursor-pointer items-center justify-center rounded-md border-2 border-dashed border-blue-300 bg-blue-50/40">
                 {previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="h-full w-full rounded-md object-contain p-2" />
+                  <img src={previewUrl} alt="Preview" className="h-full w-full rounded-md object-cover" />
                 ) : (
-                  <>
-                    <Upload size={22} className="text-blue-500" />
-                    <p className="mt-2 text-sm font-semibold text-slate-700">Click to browse or drag & drop files</p>
-                    <p className="mt-1 text-xs text-slate-400">PNG, JPG or WEBP up to 5MB</p>
-                  </>
+                  <Plus size={20} className="text-blue-500" />
                 )}
-                <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileChange} className="hidden" />
+                <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} className="hidden" />
               </label>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">Image Title</label>
+              <div className="flex-1">
+                <label className="mb-1 block text-xs font-semibold text-slate-700">Caption</label>
                 <input
                   value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder="Enter a descriptive title"
-                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
+                  onChange={(event) => setCaption(event.target.value)}
+                  placeholder="e.g. Startup Pitch Night 2026"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
                 />
-
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={handleUpload}
-                    disabled={uploading}
-                    className="flex-1 rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {uploading ? "Saving..." : "Save Image"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setFile(null);
-                      setPreviewUrl(null);
-                      setCaption("");
-                    }}
-                    className="rounded-md border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
               </div>
-            </div>
-          </div>
 
-          {successMessage && (
-            <div className="mb-5 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-              ✓ {successMessage}
+              <button
+                type="submit"
+                disabled={!file || uploading}
+                className="rounded-md bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {uploading ? "Uploading..." : "Save Image"}
+              </button>
             </div>
-          )}
+            {successMessage && <p className="mt-2 text-xs text-emerald-600">{successMessage}</p>}
+          </form>
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
@@ -164,7 +162,7 @@ export default function AdminGalleryManagementPage() {
             ) : items.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No images uploaded yet.</p>
             ) : filteredItems.length === 0 ? (
-              <p className="p-8 text-sm text-slate-500">No images match your search.</p>
+              <p className="p-8 text-sm text-slate-500">No images match your search on this page.</p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
@@ -183,13 +181,18 @@ export default function AdminGalleryManagementPage() {
                           <img src={item.imageUrl} alt={item.caption || ""} className="h-full w-full object-cover" />
                         </div>
                       </td>
-                      <td className="px-5 py-3 font-medium text-slate-800">{item.caption || "Untitled"}</td>
+                      <td className="px-5 py-3">{item.caption || "—"}</td>
                       <td className="px-5 py-3 text-slate-400">
                         {new Date(item.createdAt).toLocaleDateString()}
                       </td>
                       <td className="px-5 py-3">
-                        <button onClick={() => handleDelete(item.id)} className="text-red-500 hover:text-red-700">
-                          <Trash2 size={16} />
+                        <button
+                          onClick={() => handleDelete(item)}
+                          disabled={deletingId === item.id}
+                          className="flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          <Trash2 size={12} />
+                          {deletingId === item.id ? "Removing..." : "Remove"}
                         </button>
                       </td>
                     </tr>
@@ -198,6 +201,14 @@ export default function AdminGalleryManagementPage() {
               </table>
             )}
           </div>
+
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
     </div>

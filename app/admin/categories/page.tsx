@@ -1,115 +1,99 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { Plus, Trash2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import Pagination from "@/components/admin/Pagination";
 
-type Category = {
-  id: string;
-  name: string;
-  description: string | null;
-  productCount: number;
-};
+type Category = { id: string; name: string; slug: string; _count: { products: number } };
+type PaginationInfo = { currentPage: number; totalPages: number; totalCount: number };
 
-// Simplified from the Figma's "Category Tree Configurator" (which showed
-// nested sub-categories) — our data model only supports one flat level
-// of categories (a Product belongs to exactly one Category), so this
-// manages that flat list instead of a tree. Adding true sub-categories
-// would need a real schema change (a parentId on Category) that wasn't
-// part of the original requirements.
 export default function CategoryManagementPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [page]);
 
   async function loadCategories() {
     try {
-      const response = await fetch("/api/admin/categories");
+      setLoading(true);
+      const response = await fetch(`/api/admin/categories?page=${page}`);
       const data = await response.json();
       if (response.ok) {
         setCategories(data.categories);
-        if (data.categories.length > 0 && !selectedId) {
-          selectCategory(data.categories[0]);
-        }
+        setPagination(data.pagination);
       }
+    } catch (error) {
+      console.error("Load categories error:", error);
     } finally {
       setLoading(false);
     }
   }
 
-  function selectCategory(category: Category) {
-    setSelectedId(category.id);
-    setName(category.name);
-    setDescription(category.description || "");
+  const filteredCategories = categories.filter((category) => {
+    const term = searchTerm.trim().toLowerCase();
+    return term === "" || category.name.toLowerCase().includes(term);
+  });
+
+  async function handleAddCategory(event: FormEvent) {
+    event.preventDefault();
     setError("");
-  }
+    if (!newCategoryName.trim()) return;
 
-  async function handleAddNew() {
-    const newName = window.prompt("New category name:");
-    if (!newName) return;
+    try {
+      const response = await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName.trim() }),
+      });
+      const data = await response.json();
 
-    const response = await fetch("/api/admin/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName }),
-    });
+      if (!response.ok) {
+        setError(data.message || "Unable to create category.");
+        return;
+      }
 
-    const data = await response.json();
-    if (response.ok) {
-      await loadCategories();
-      selectCategory(data.category);
-    } else {
-      alert(data.message);
+      setNewCategoryName("");
+      setPage(1);
+      loadCategories();
+    } catch (error) {
+      console.error("Create category error:", error);
+      setError("Something went wrong. Please try again.");
     }
   }
 
-  async function handleSave() {
-    if (!selectedId) return;
-    setSaving(true);
-    setError("");
+  async function handleDelete(category: Category) {
+    const confirmed = window.confirm(`Delete category "${category.name}"?`);
+    if (!confirmed) return;
 
-    const response = await fetch(`/api/admin/categories/${selectedId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description }),
-    });
+    setDeletingId(category.id);
+    try {
+      const response = await fetch(`/api/admin/categories/${category.id}`, { method: "DELETE" });
+      const data = await response.json();
 
-    const data = await response.json();
-    if (response.ok) {
-      await loadCategories();
-    } else {
-      setError(data.message);
-    }
-    setSaving(false);
-  }
+      if (!response.ok) {
+        alert(data.message || "Unable to delete this category.");
+        return;
+      }
 
-  async function handleDelete() {
-    if (!selectedId) return;
-    if (!confirm("Delete this category? This can't be undone.")) return;
-
-    const response = await fetch(`/api/admin/categories/${selectedId}`, { method: "DELETE" });
-    const data = await response.json();
-
-    if (response.ok) {
-      setSelectedId(null);
-      await loadCategories();
-    } else {
-      alert(data.message);
+      loadCategories();
+    } catch (error) {
+      console.error("Delete category error:", error);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setDeletingId(null);
     }
   }
-
-  const selectedCategory = categories.find((c) => c.id === selectedId);
 
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
@@ -124,95 +108,62 @@ export default function CategoryManagementPage() {
         />
 
         <main className="p-8">
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_1fr]">
-            <div className="rounded-xl border border-slate-200 bg-white p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900">Categories</h2>
-                <button
-                  onClick={handleAddNew}
-                  className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700"
-                >
-                  <Plus size={12} /> Add Category
-                </button>
-              </div>
+          <form onSubmit={handleAddCategory} className="mb-6 flex items-end gap-3 rounded-xl border border-slate-200 bg-white p-5">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-semibold text-slate-700">New Category Name</label>
+              <input
+                value={newCategoryName}
+                onChange={(event) => setNewCategoryName(event.target.value)}
+                placeholder="e.g. Music & Instruments"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600"
+              />
+            </div>
+            <button
+              type="submit"
+              className="flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus size={14} />
+              Add Category
+            </button>
+          </form>
+          {error && <p className="mb-4 text-xs text-red-600">{error}</p>}
 
-              {loading ? (
-                <p className="text-sm text-slate-500">Loading...</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {categories
-                    .filter((category) => {
-                      const term = searchTerm.trim().toLowerCase();
-                      return term === "" || category.name.toLowerCase().includes(term);
-                    })
-                    .map((category) => (
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {loading ? (
+              <p className="p-8 text-sm text-slate-500">Loading categories...</p>
+            ) : categories.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">No categories yet.</p>
+            ) : filteredCategories.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">No categories match your search on this page.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {filteredCategories.map((category) => (
+                  <div key={category.id} className="flex items-center justify-between px-5 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{category.name}</p>
+                      <p className="text-xs text-slate-400">{category._count.products} products</p>
+                    </div>
                     <button
-                      key={category.id}
-                      onClick={() => selectCategory(category)}
-                      className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition ${
-                        selectedId === category.id
-                          ? "bg-blue-50 font-semibold text-blue-700"
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
+                      onClick={() => handleDelete(category)}
+                      disabled={deletingId === category.id}
+                      className="flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1.5 text-[10px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
                     >
-                      <span>{category.name}</span>
-                      <span className="text-xs text-slate-400">{category.productCount} items</span>
+                      <Trash2 size={12} />
+                      {deletingId === category.id ? "Deleting..." : "Delete"}
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-white p-6">
-              {!selectedCategory ? (
-                <p className="text-sm text-slate-500">Select a category on the left to edit it.</p>
-              ) : (
-                <>
-                  <h2 className="mb-4 text-sm font-bold text-slate-900">
-                    Editing details for &ldquo;{selectedCategory.name}&rdquo;
-                  </h2>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-700">Category Title</label>
-                      <input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1.5 block text-xs font-semibold text-slate-700">Description</label>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="h-24 w-full resize-none rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
-                      />
-                    </div>
-
-                    {error && <p className="text-sm text-red-500">{error}</p>}
-
-                    <div className="flex justify-between pt-2">
-                      <button
-                        onClick={handleDelete}
-                        className="rounded-md bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100"
-                      >
-                        Delete Category
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="rounded-md bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-                      >
-                        {saving ? "Saving..." : "Save Changes"}
-                      </button>
-                    </div>
                   </div>
-                </>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
     </div>
