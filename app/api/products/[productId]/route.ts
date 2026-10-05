@@ -19,9 +19,6 @@ export async function GET(
         category: true,
         images: true,
         reviews: true,
-
-reviews: true,
-
         business: {
           include: {
             entrepreneurProfile: {
@@ -44,11 +41,6 @@ reviews: true,
       );
     }
 
-
-
-    return NextResponse.json({ product });
-
-
     const averageRating =
       product.reviews.length > 0
         ? product.reviews.reduce(
@@ -67,7 +59,6 @@ reviews: true,
         reviewCount: product.reviews.length,
       },
     });
-
   } catch (error) {
     console.error("Get product error:", error);
 

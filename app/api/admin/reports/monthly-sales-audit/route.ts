@@ -5,41 +5,42 @@ import { getCurrentUser } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
   try {
+    // 401 = not signed in, 403 = signed in but not an admin.
     const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
+    if (!admin) {
+      return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
+    }
+    if (admin.role !== "ADMIN") {
       return NextResponse.json({ message: "Forbidden." }, { status: 403 });
     }
 
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    
-    // Fetch orders safely with try-catch fallback in case relations are missing
-    let verifiedOrders: any[] = [];
-    try {
-      verifiedOrders = await prisma.order.findMany({
-        where: {
-          status: "VERIFIED",
-          createdAt: { gte: startOfMonth },
-        },
-        include: {
-          business: true,
-          orderItems: {
-            include: {
-              product: true,
-            },
+
+    // The relation on Order is called "items" (not "orderItems"). There is
+    // deliberately no try/catch fallback here: the old fallback ran a plain
+    // query with no month filter and no business/item data, so a failure
+    // produced a report that downloaded fine but listed every verified order
+    // ever. If this query fails, the catch block below returns a clear error.
+    const verifiedOrders = await prisma.order.findMany({
+      where: {
+        status: "VERIFIED",
+        createdAt: { gte: startOfMonth },
+      },
+      include: {
+        business: true,
+        items: {
+          include: {
+            product: true,
           },
         },
-        orderBy: { createdAt: "desc" },
-      });
-    } catch (dbError) {
-      console.error("Prisma relation fetch error, falling back:", dbError);
-      // Fallback to simple query if relations fail
-      verifiedOrders = await prisma.order.findMany({
-        where: { status: "VERIFIED" },
-        orderBy: { createdAt: "desc" },
-      });
-    }
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-    const totalRevenue = verifiedOrders.reduce((sum: number, order: any) => sum + Number(order.totalAmount || order.amount || 0), 0);
+    const totalRevenue = verifiedOrders.reduce(
+      (sum, order) => sum + Number(order.totalAmount),
+      0
+    );
 
     const chunks: Buffer[] = [];
     const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -49,10 +50,13 @@ export async function GET(request: NextRequest) {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
     });
 
-    doc.fontSize(20).fillColor("#1E293B").text("StartupSpark — Monthly Sales Audit");
+    doc.fontSize(20).fillColor("#1E293B").text("StartupSpark - Monthly Sales Audit");
     doc.fontSize(11).fillColor("#64748B").text(`Period: ${startOfMonth.toLocaleDateString()} - Present`);
     doc.moveDown(1);
-    doc.fontSize(12).fillColor("#1E293B").text(`Total Verified Orders: ${verifiedOrders.length} | Total Revenue: Rs.${totalRevenue.toFixed(2)}`);
+    doc
+      .fontSize(12)
+      .fillColor("#1E293B")
+      .text(`Total Verified Orders: ${verifiedOrders.length} | Total Revenue: Rs.${totalRevenue.toFixed(2)}`);
     doc.moveDown(1);
 
     const tableTop = doc.y;
@@ -75,20 +79,17 @@ export async function GET(request: NextRequest) {
           y = 50;
         }
 
-        const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString() : "—";
-        const itemCount = order.orderItems && Array.isArray(order.orderItems)
-          ? order.orderItems.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0)
-          : 1;
-
-        const businessName = order.business?.businessName || order.businessName || "—";
-        const orderAmount = Number(order.totalAmount || order.amount || 0);
+        const dateStr = new Date(order.createdAt).toLocaleDateString();
+        const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+        const businessName = order.business.businessName;
+        const orderAmount = Number(order.totalAmount);
 
         doc.fontSize(8).fillColor("#1E293B");
         doc.text(dateStr, 50, y, { width: 70 });
         doc.text(businessName, 120, y, { width: 120 });
         doc.text(String(itemCount), 240, y, { width: 70, align: "center" });
         doc.text(`Rs.${orderAmount.toFixed(2)}`, 310, y, { width: 100, align: "right" });
-        doc.text(order.status || "VERIFIED", 420, y, { width: 120, align: "right" });
+        doc.text(order.status, 420, y, { width: 120, align: "right" });
 
         y += 22;
       }
@@ -105,6 +106,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Generate monthly sales audit fatal error:", error);
-    return NextResponse.json({ message: "Unable to generate report.", error: String(error) }, { status: 500 });
+    return NextResponse.json({ message: "Unable to generate report." }, { status: 500 });
   }
 }
