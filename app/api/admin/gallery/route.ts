@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
     const imageUrl = await saveUploadedFile(file, "gallery");
 
     const item = await prisma.galleryItem.create({
-      data: { imageUrl, caption: caption || null },
+      // uploadedById is required by the GalleryItem table (which admin uploaded
+      // it). It comes from the signed-in session, never from the request.
+      data: { imageUrl, caption: caption || null, uploadedById: admin.id },
     });
 
     return NextResponse.json({ message: "Image uploaded.", item });
