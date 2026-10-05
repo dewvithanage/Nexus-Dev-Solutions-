@@ -23,7 +23,10 @@ export async function GET(
           include: {
             entrepreneurProfile: {
               include: {
-                user: true,
+                // Only the seller's display name — NOT the whole User row,
+                // which would also send email, phone and passwordHash to
+                // anyone who opens this public URL.
+                user: { select: { name: true } },
               },
             },
           },
