@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 
 import Input from "../ui/Input";
 import Button from "../ui/Button";
+import {
+  isValidEmailFormat,
+  validatePassword,
+  PASSWORD_RULES_HINT,
+} from "@/lib/validation";
 
 type RegisterFormData = {
   fullName: string;
@@ -39,6 +44,19 @@ export default function EntrepreneurRegisterForm() {
 
     if (!formData.fullName || !formData.email || !formData.password) {
       setError("Please fill in all required fields.");
+      return;
+    }
+
+    // Same rules the server enforces, checked here first only so the
+    // person gets an instant message. The server re-checks everything.
+    if (!isValidEmailFormat(formData.email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -77,23 +95,14 @@ export default function EntrepreneurRegisterForm() {
         onChange={handleChange}
       />
 
-
-      <div>
-        <Input
-          label="University Email"
-          name="email"
-          type="email"
-          value={formData.email}
-          placeholder="e.g. ar118533@fhss.sjp.ac.lk"
-          onChange={handleChange}
-        />
-        {/* Client requirement: only FHSS students can register right now
-            — see lib/validation.ts for the exact rule this hint describes. */}
-        <p className="mt-1 text-[11px] text-slate-400">
-          Only FHSS student emails are accepted right now (format: ar123456@fhss.sjp.ac.lk)
-        </p>
-      </div>
-
+      <Input
+        label="Email"
+        name="email"
+        type="email"
+        value={formData.email}
+        placeholder="e.g. yourname@gmail.com"
+        onChange={handleChange}
+      />
 
       <Input
         label="Contact Number"
@@ -111,14 +120,17 @@ export default function EntrepreneurRegisterForm() {
         onChange={handleChange}
       />
 
-      <Input
-        label="Password"
-        name="password"
-        type="password"
-        value={formData.password}
-        placeholder="Create a password"
-        onChange={handleChange}
-      />
+      <div>
+        <Input
+          label="Password"
+          name="password"
+          type="password"
+          value={formData.password}
+          placeholder="Create a password"
+          onChange={handleChange}
+        />
+        <p className="mt-1 text-[11px] text-slate-400">{PASSWORD_RULES_HINT}</p>
+      </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}
 
