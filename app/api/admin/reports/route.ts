@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/session";
 
 export async function GET() {
   try {
+    // Admin only: this returns platform-wide revenue and sales figures.
+    // 401 = not signed in, 403 = signed in but not an admin.
+    const admin = await getCurrentUser();
+    if (!admin) {
+      return NextResponse.json({ message: "Not authenticated." }, { status: 401 });
+    }
+    if (admin.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
+
     const now = new Date();
     const startOfThisWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const startOfLastWeek = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -48,7 +59,7 @@ export async function GET() {
         ? ((thisWeekOrders.length - lastWeekOrders.length) / lastWeekOrders.length) * 100
         : 0;
 
-    // Revenue by category — sums up VERIFIED order line items per category.
+    // Revenue by category - sums up VERIFIED order line items per category.
     const categoryRevenue = categories
       .map((category) => {
         const revenue = category.products.reduce((sum, product) => {

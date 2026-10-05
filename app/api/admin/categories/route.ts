@@ -6,6 +6,11 @@ const ITEMS_PER_PAGE = 10;
 
 export async function GET(request: NextRequest) {
   try {
+    const admin = await getCurrentUser();
+    if (!admin || admin.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
+
     const params = request.nextUrl.searchParams;
     const page = Math.max(1, Number(params.get("page")) || 1);
     const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
