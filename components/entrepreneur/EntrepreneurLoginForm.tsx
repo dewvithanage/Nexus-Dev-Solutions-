@@ -71,11 +71,11 @@ export default function EntrepreneurLoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input
-        label="University Email"
+        label="Email"
         name="email"
         type="email"
         value={formData.email}
-        placeholder="Enter your university email"
+        placeholder="Enter your email"
         onChange={handleChange}
       />
 
@@ -94,12 +94,10 @@ export default function EntrepreneurLoginForm() {
           Remember me
         </label>
 
-
         <Link
           href="/entrepreneur/forgot-password"
           className="font-medium text-blue-600 hover:underline"
         >
-
           Forgot Password?
         </Link>
       </div>
