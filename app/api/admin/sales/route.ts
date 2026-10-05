@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
+import type { Prisma } from "@prisma/client";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -16,11 +17,14 @@ export async function GET(request: NextRequest) {
     const page = Math.max(1, Number(params.get("page")) || 1);
     const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
 
-    const where =
+    // Typed explicitly as Prisma's own filter type. (The previous version used
+    // "as const", which made the status list read-only - fine at runtime, but
+    // TypeScript rejects it, which would fail "npm run build".)
+    const where: Prisma.OrderWhereInput =
       statusFilter === "PENDING"
-        ? { status: { in: ["PENDING", "AWAITING_FULFILLMENT", "PENDING_VERIFICATION"] as const } }
-        : statusFilter
-        ? { status: statusFilter as "VERIFIED" | "FLAGGED" }
+        ? { status: { in: ["PENDING", "AWAITING_FULFILLMENT", "PENDING_VERIFICATION"] } }
+        : statusFilter === "VERIFIED" || statusFilter === "FLAGGED"
+        ? { status: statusFilter }
         : {};
 
     const totalCount = await prisma.order.count({ where });
