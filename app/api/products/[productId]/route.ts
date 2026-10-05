@@ -19,14 +19,14 @@ export async function GET(
         category: true,
         images: true,
         reviews: true,
-
-reviews: true,
-
         business: {
           include: {
             entrepreneurProfile: {
               include: {
-                user: true,
+                // Only the seller's display name — NOT the whole User row,
+                // which would also send email, phone and passwordHash to
+                // anyone who opens this public URL.
+                user: { select: { name: true } },
               },
             },
           },
@@ -40,11 +40,6 @@ reviews: true,
         { status: 404 }
       );
     }
-
-
-
-    return NextResponse.json({ product });
-
 
     const averageRating =
       product.reviews.length > 0
@@ -64,7 +59,6 @@ reviews: true,
         reviewCount: product.reviews.length,
       },
     });
-
   } catch (error) {
     console.error("Get product error:", error);
 

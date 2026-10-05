@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import Pagination from "@/components/admin/Pagination";
 
 type OrderRow = {
   id: string;
@@ -14,34 +15,42 @@ type OrderRow = {
   productNames: string;
   totalAmount: number;
   status: string;
-  hasProof: boolean;
   createdAt: string;
 };
 
+type PaginationInfo = { currentPage: number; totalPages: number; totalCount: number };
 type TabKey = "PENDING" | "VERIFIED" | "FLAGGED";
-
-const tabs: { key: TabKey; label: string }[] = [
-  { key: "PENDING", label: "Pending Verification" },
-  { key: "VERIFIED", label: "Verified" },
-  { key: "FLAGGED", label: "Flagged / Disputes" },
-];
 
 export default function SalesVerificationPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("PENDING");
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/admin/sales?status=${activeTab}`)
-      .then((response) => response.json())
-      .then((data) => setOrders(data.orders || []))
-      .finally(() => setLoading(false));
-  }, [activeTab]);
+    const params = new URLSearchParams();
+    params.set("status", activeTab);
+    params.set("page", String(page));
 
-  // FIX: header search box was previously decorative. Now filters this
-  // list by buyer, seller/entrepreneur, business, or product name.
+    fetch(`/api/admin/sales?${params.toString()}`)
+      .then((response) => response.json())
+      .then((data) => {
+        setOrders(data.orders || []);
+        setPagination(data.pagination || null);
+      })
+      .finally(() => setLoading(false));
+  }, [activeTab, page]);
+
+  // Same as Content Management — this filters within the current page
+  // only. For fully accurate cross-page search, the search term would
+  // need to be sent to the API and applied server-side too.
   const filteredOrders = orders.filter((order) => {
     const term = searchTerm.trim().toLowerCase();
     if (term === "") return true;
@@ -66,21 +75,25 @@ export default function SalesVerificationPage() {
         />
 
         <main className="p-8">
-          <div className="mb-5 flex gap-2">
-            {tabs.map((tab) => (
+          <div className="mb-5 flex gap-1 border-b border-slate-200">
+            {(["PENDING", "VERIFIED", "FLAGGED"] as TabKey[]).map((tab) => (
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-md px-4 py-2 text-xs font-semibold transition ${
-                  activeTab === tab.key
-                    ? "bg-blue-600 text-white"
-                    : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2.5 text-xs font-semibold ${
+                  activeTab === tab ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {tab.label}
+                {tab === "PENDING" ? "Pending Verification" : tab === "VERIFIED" ? "Verified" : "Flagged / Disputes"}
               </button>
             ))}
           </div>
+
+          {pagination && (
+            <p className="mb-3 text-xs text-slate-500">
+              Showing {orders.length} of {pagination.totalCount}
+            </p>
+          )}
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
@@ -88,53 +101,39 @@ export default function SalesVerificationPage() {
             ) : orders.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No orders in this category.</p>
             ) : filteredOrders.length === 0 ? (
-              <p className="p-8 text-sm text-slate-500">No orders match your search.</p>
+              <p className="p-8 text-sm text-slate-500">No orders match your search on this page.</p>
             ) : (
               <table className="w-full text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
-                    <th className="px-5 py-3">Order ID</th>
-                    <th className="px-5 py-3">Venture Product</th>
-                    <th className="px-5 py-3">Seller</th>
                     <th className="px-5 py-3">Buyer</th>
+                    <th className="px-5 py-3">Seller</th>
+                    <th className="px-5 py-3">Products</th>
                     <th className="px-5 py-3">Amount</th>
-                    <th className="px-5 py-3">Order Date</th>
-                    <th className="px-5 py-3">Status</th>
+                    <th className="px-5 py-3">Date</th>
                     <th className="px-5 py-3">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredOrders.map((order) => (
                     <tr key={order.id} className="text-[12px] text-slate-600">
-                      <td className="px-5 py-4 font-semibold text-slate-800">TX-{order.id.slice(-4)}</td>
-                      <td className="px-5 py-4">{order.productNames}</td>
-                      <td className="px-5 py-4">{order.sellerName}</td>
-                      <td className="px-5 py-4">{order.buyerName}</td>
-                      <td className="px-5 py-4 font-bold text-blue-600">
+                      <td className="px-5 py-3 font-semibold text-slate-800">{order.buyerName}</td>
+                      <td className="px-5 py-3">
+                        {order.sellerName} <span className="text-slate-400">({order.businessName})</span>
+                      </td>
+                      <td className="px-5 py-3">{order.productNames}</td>
+                      <td className="px-5 py-3 font-semibold text-blue-600">
                         Rs.{Number(order.totalAmount).toFixed(2)}
                       </td>
-                      <td className="px-5 py-4 text-slate-400">
+                      <td className="px-5 py-3 text-slate-400">
                         {new Date(order.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-[9px] font-semibold ${
-                            order.status === "VERIFIED"
-                              ? "bg-emerald-100 text-emerald-600"
-                              : order.status === "FLAGGED"
-                              ? "bg-red-100 text-red-600"
-                              : "bg-blue-100 text-blue-600"
-                          }`}
-                        >
-                          {order.status === "PENDING_VERIFICATION" ? "Reviewing" : order.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
+                      <td className="px-5 py-3">
                         <Link
                           href={`/admin/sales/${order.id}`}
-                          className="rounded-md bg-blue-600 px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700"
+                          className="rounded-md bg-blue-600 px-3 py-1.5 text-[10px] font-semibold text-white hover:bg-blue-700"
                         >
-                          Audit
+                          Review
                         </Link>
                       </td>
                     </tr>
@@ -143,6 +142,14 @@ export default function SalesVerificationPage() {
               </table>
             )}
           </div>
+
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
     </div>

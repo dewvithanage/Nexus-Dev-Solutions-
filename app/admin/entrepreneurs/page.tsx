@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Trash2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import Pagination from "@/components/admin/Pagination";
 
 type EntrepreneurRow = {
   id: string;
@@ -19,27 +20,43 @@ type EntrepreneurRow = {
   appliedAt: string;
 };
 
+type PaginationInfo = { currentPage: number; totalPages: number; totalCount: number };
 type TabKey = "ACTIVE" | "REJECTED";
 
 export default function EntrepreneurManagementPage() {
   const [entrepreneurs, setEntrepreneurs] = useState<EntrepreneurRow[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("ACTIVE");
   const [searchTerm, setSearchTerm] = useState("");
-  const [universityFilter, setUniversityFilter] = useState("All");
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Changing tab or search should always jump back to page 1 — staying
+  // on, say, page 3 after switching tabs could land on an empty page
+  // that doesn't exist for the new filter.
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchTerm]);
 
   useEffect(() => {
     loadEntrepreneurs();
-  }, []);
+  }, [activeTab, searchTerm, page]);
 
   async function loadEntrepreneurs() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/entrepreneurs");
+      const params = new URLSearchParams();
+      params.set("tab", activeTab);
+      if (searchTerm) params.set("search", searchTerm);
+      params.set("page", String(page));
+
+      const response = await fetch(`/api/admin/entrepreneurs?${params.toString()}`);
       const data = await response.json();
-      if (response.ok) setEntrepreneurs(data.entrepreneurs);
+      if (response.ok) {
+        setEntrepreneurs(data.entrepreneurs);
+        setPagination(data.pagination);
+      }
     } catch (error) {
       console.error("Load entrepreneurs error:", error);
     } finally {
@@ -47,38 +64,6 @@ export default function EntrepreneurManagementPage() {
     }
   }
 
-  const universities = useMemo(
-    () => ["All", ...new Set(entrepreneurs.map((e) => e.university).filter(Boolean) as string[])],
-    [entrepreneurs]
-  );
-  const categories = useMemo(
-    () => ["All", ...new Set(entrepreneurs.map((e) => e.primaryCategory).filter((c) => c !== "—"))],
-    [entrepreneurs]
-  );
-
-  // FIX: rejected entrepreneurs previously sat in the same list as
-  // everyone else, distinguished only by a small status badge — easy to
-  // miss and cluttering the main working view. Now split into two tabs,
-  // matching the same pattern used on Product Management and Sales
-  // Verification.
-  const rejectedCount = entrepreneurs.filter((e) => e.status === "REJECTED").length;
-
-  const filtered = entrepreneurs.filter((entrepreneur) => {
-    const matchesTab =
-      activeTab === "REJECTED" ? entrepreneur.status === "REJECTED" : entrepreneur.status !== "REJECTED";
-    const matchesSearch =
-      !searchTerm ||
-      entrepreneur.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entrepreneur.businessName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesUniversity = universityFilter === "All" || entrepreneur.university === universityFilter;
-    const matchesCategory = categoryFilter === "All" || entrepreneur.primaryCategory === categoryFilter;
-
-    return matchesTab && matchesSearch && matchesUniversity && matchesCategory;
-  });
-
-  // NEW: permanently delete an entrepreneur. The backend blocks this
-  // and returns a clear reason if any of their products have real order
-  // history, so that error message is shown as-is.
   async function handleDelete(entrepreneur: EntrepreneurRow) {
     const confirmed = window.confirm(
       `Permanently delete "${entrepreneur.fullName}" and their business "${entrepreneur.businessName}"? This cannot be undone.`
@@ -95,7 +80,7 @@ export default function EntrepreneurManagementPage() {
         return;
       }
 
-      setEntrepreneurs((current) => current.filter((e) => e.id !== entrepreneur.id));
+      loadEntrepreneurs();
     } catch (error) {
       console.error("Delete entrepreneur error:", error);
       alert("Something went wrong. Please try again.");
@@ -117,14 +102,11 @@ export default function EntrepreneurManagementPage() {
         />
 
         <main className="p-8">
-          {/* Tabs: Active vs Rejected */}
           <div className="mb-5 flex gap-1 border-b border-slate-200">
             <button
               onClick={() => setActiveTab("ACTIVE")}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                activeTab === "ACTIVE"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === "ACTIVE" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               Active Entrepreneurs
@@ -132,41 +114,17 @@ export default function EntrepreneurManagementPage() {
             <button
               onClick={() => setActiveTab("REJECTED")}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                activeTab === "REJECTED"
-                  ? "border-b-2 border-red-600 text-red-600"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === "REJECTED" ? "border-b-2 border-red-600 text-red-600" : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              Rejected ({rejectedCount})
+              Rejected
             </button>
           </div>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={universityFilter}
-                onChange={(event) => setUniversityFilter(event.target.value)}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700"
-              >
-                {universities.map((university) => (
-                  <option key={university} value={university}>
-                    University: {university}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value)}
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700"
-              >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    Category: {category}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <p className="text-xs text-slate-500">
+              {pagination ? `Showing ${entrepreneurs.length} of ${pagination.totalCount}` : ""}
+            </p>
 
             <Link
               href="/admin/entrepreneurs/approvals"
@@ -179,7 +137,7 @@ export default function EntrepreneurManagementPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading entrepreneurs...</p>
-            ) : filtered.length === 0 ? (
+            ) : entrepreneurs.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">
                 {activeTab === "REJECTED" ? "No rejected entrepreneurs." : "No entrepreneurs match your filters."}
               </p>
@@ -199,7 +157,7 @@ export default function EntrepreneurManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((entrepreneur) => (
+                  {entrepreneurs.map((entrepreneur) => (
                     <tr key={entrepreneur.id} className="text-[12px] text-slate-600">
                       <td className="px-5 py-4">
                         <Link
@@ -250,9 +208,13 @@ export default function EntrepreneurManagementPage() {
             )}
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
-            Showing {filtered.length} {activeTab === "REJECTED" ? "rejected" : "active"} entrepreneur(s)
-          </p>
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
     </div>

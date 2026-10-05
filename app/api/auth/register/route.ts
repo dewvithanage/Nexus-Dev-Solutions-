@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import {
-  isUniversityEmail,
-  UNIVERSITY_EMAIL_EXAMPLE,
-} from "@/lib/validation";
+import { isValidEmailFormat, validatePassword } from "@/lib/validation";
 
 // Handles entrepreneur registration.
 export async function POST(request: NextRequest) {
@@ -27,35 +24,45 @@ export async function POST(request: NextRequest) {
       password?: string;
     };
 
-    if (!fullName || !email || !password) {
+    if (
+      !fullName ||
+      !email ||
+      !password ||
+      typeof email !== "string" ||
+      typeof password !== "string"
+    ) {
       return NextResponse.json(
-        {
-          message:
-            "Full name, email and password are required.",
-        },
+        { message: "Full name, email and password are required." },
         { status: 400 }
       );
     }
 
-    if (!isUniversityEmail(email)) {
+    const normalizedEmail = email.trim();
+
+    // Any real-looking email address is allowed now (client request) —
+    // this only rejects obviously malformed input like "asdf".
+    if (!isValidEmailFormat(normalizedEmail)) {
       return NextResponse.json(
-        {
-          message: `Please register with your FHSS university email (format: ${UNIVERSITY_EMAIL_EXAMPLE}).`,
-        },
+        { message: "Please enter a valid email address." },
         { status: 400 }
       );
     }
 
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return NextResponse.json({ message: passwordError }, { status: 400 });
+    }
+
+    // Case-insensitive, so "Test@Gmail.com" can't register as a second
+    // account next to "test@gmail.com". Now that any email is allowed,
+    // this matters much more than it did with the FHSS-only pattern.
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        {
-          message:
-            "An account with this email already exists.",
-        },
+        { message: "An account with this email already exists." },
         { status: 409 }
       );
     }
@@ -65,21 +72,18 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.create({
       data: {
         name: fullName,
-        email,
+        email: normalizedEmail,
         phone: phone || null,
         passwordHash,
         role: "ENTREPRENEUR",
 
         entrepreneurProfile: {
           create: {
-            whatsappNumber:
-              whatsappNumber || phone || "",
+            whatsappNumber: whatsappNumber || phone || "",
 
             business: {
               create: {
-                businessName:
-                  businessName ||
-                  `${fullName}'s Business`,
+                businessName: businessName || `${fullName}'s Business`,
               },
             },
           },
@@ -95,19 +99,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
-
- Himasha
     // Notify every admin that a new registration needs review — this is
     // what populates the "Registrations" tab on Admin Notifications.
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
-
-    // Notify admins about the new registration.
     const admins = await prisma.user.findMany({
-      where: {
-        role: "ADMIN",
-      },
+      where: { role: "ADMIN" },
     });
-
 
     if (admins.length > 0) {
       await prisma.notification.createMany({
@@ -119,14 +115,10 @@ export async function POST(request: NextRequest) {
             businessName || "unnamed business"
           }) has applied and needs review.`,
           relatedEntityType: "EntrepreneurProfile",
-          relatedEntityId:
-            user.entrepreneurProfile?.id,
+          relatedEntityId: user.entrepreneurProfile?.id,
         })),
       });
     }
-
-
-
 
     return NextResponse.json(
       {
@@ -137,8 +129,7 @@ export async function POST(request: NextRequest) {
           id: user.id,
           fullName: user.name,
           email: user.email,
-          status:
-            user.entrepreneurProfile?.status,
+          status: user.entrepreneurProfile?.status,
         },
       },
       { status: 201 }
@@ -147,9 +138,7 @@ export async function POST(request: NextRequest) {
     console.error("Registration error:", error);
 
     return NextResponse.json(
-      {
-        message: "Internal server error.",
-      },
+      { message: "Internal server error." },
       { status: 500 }
     );
   }

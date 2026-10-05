@@ -1,41 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { saveFile } from "@/lib/upload";
+import { getCurrentUser } from "@/lib/session";
+
+const ITEMS_PER_PAGE = 10;
+
+export async function GET(request: NextRequest) {
+  try {
+    const admin = await getCurrentUser();
+    if (!admin || admin.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
+
+    const params = request.nextUrl.searchParams;
+    const page = Math.max(1, Number(params.get("page")) || 1);
+    const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
+
+    const totalCount = await prisma.galleryItem.count();
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    const items = await prisma.galleryItem.findMany({
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return NextResponse.json({
+      items,
+      pagination: { currentPage: page, totalPages, totalCount, pageSize },
+    });
+  } catch (error) {
+    console.error("Get gallery error:", error);
+    return NextResponse.json({ message: "Unable to load gallery." }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
+    const admin = await getCurrentUser();
+    if (!admin || admin.role !== "ADMIN") {
+      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    }
+
     const formData = await request.formData();
-    const file = formData.get("image") as File || formData.get("file") as File;
-    const caption = formData.get("caption") as string || formData.get("title") as string || "";
+    const file = formData.get("image") as File | null;
+    const caption = formData.get("caption") as string | null;
 
     if (!file) {
-      return NextResponse.json({ success: false, message: "No image file provided." }, { status: 400 });
+      return NextResponse.json({ message: "An image file is required." }, { status: 400 });
     }
 
-    // Save file to public/uploads/gallery
-    const imageUrl = await saveFile(file, "gallery");
+    const { saveUploadedFile } = await import("@/lib/upload");
+    const imageUrl = await saveUploadedFile(file, "gallery");
 
-    // Get an admin user as the uploader (fallback for database relation)
-    const adminUser = await prisma.user.findFirst({
-      where: { role: "ADMIN" },
+    const item = await prisma.galleryItem.create({
+      data: { imageUrl, caption: caption || null },
     });
 
-    if (!adminUser) {
-      return NextResponse.json({ success: false, message: "Admin user not found." }, { status: 400 });
-    }
-
-    // Create gallery item in database
-    const galleryItem = await prisma.galleryItem.create({
-      data: {
-        imageUrl,
-        caption,
-        uploadedById: adminUser.id,
-      },
-    });
-
-    return NextResponse.json({ success: true, galleryItem });
+    return NextResponse.json({ message: "Image uploaded.", item });
   } catch (error) {
-    console.error("Gallery upload API error:", error);
-    return NextResponse.json({ success: false, message: "Failed to save image." }, { status: 500 });
+    console.error("Upload gallery image error:", error);
+    return NextResponse.json({ message: "Unable to upload image." }, { status: 500 });
   }
 }

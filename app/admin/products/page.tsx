@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Star, Trash2 } from "lucide-react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import Pagination from "@/components/admin/Pagination";
 
 type ProductRow = {
   id: string;
@@ -21,26 +22,40 @@ type ProductRow = {
   createdAt: string;
 };
 
+type PaginationInfo = { currentPage: number; totalPages: number; totalCount: number };
 type TabKey = "ACTIVE" | "REJECTED";
 
 export default function ProductManagementPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("ACTIVE");
-  const [categoryFilter, setCategoryFilter] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchTerm]);
+
+  useEffect(() => {
     loadProducts();
-  }, []);
+  }, [activeTab, searchTerm, page]);
 
   async function loadProducts() {
     try {
       setLoading(true);
-      const response = await fetch("/api/admin/products");
+      const params = new URLSearchParams();
+      params.set("tab", activeTab);
+      if (searchTerm) params.set("search", searchTerm);
+      params.set("page", String(page));
+
+      const response = await fetch(`/api/admin/products?${params.toString()}`);
       const data = await response.json();
-      if (response.ok) setProducts(data.products);
+      if (response.ok) {
+        setProducts(data.products);
+        setPagination(data.pagination);
+      }
     } catch (error) {
       console.error("Load products error:", error);
     } finally {
@@ -48,36 +63,8 @@ export default function ProductManagementPage() {
     }
   }
 
-  const categories = useMemo(
-    () => ["All", ...new Set(products.map((p) => p.category))],
-    [products]
-  );
-
-  // FIX: rejected products previously sat in the same list as everything
-  // else, distinguished only by a small status badge — easy to miss and
-  // cluttering the main working view. Now split into two tabs: "Active
-  // Listings" (pending + approved) and "Rejected", matching the same
-  // tab pattern already used on Sales Verification.
-  const rejectedCount = products.filter((p) => p.status === "REJECTED").length;
-
-  const filtered = products.filter((product) => {
-    const matchesTab = activeTab === "REJECTED" ? product.status === "REJECTED" : product.status !== "REJECTED";
-    const matchesCategory = categoryFilter === "All" || product.category === categoryFilter;
-    const term = searchTerm.trim().toLowerCase();
-    const matchesSearch =
-      term === "" ||
-      product.name.toLowerCase().includes(term) ||
-      product.entrepreneurName.toLowerCase().includes(term);
-    return matchesTab && matchesCategory && matchesSearch;
-  });
-
-  // NEW: permanently delete a product. The backend blocks this and
-  // returns a clear reason if the product has real order history, so
-  // that error message is shown as-is rather than a generic failure.
   async function handleDelete(product: ProductRow) {
-    const confirmed = window.confirm(
-      `Permanently delete "${product.name}"? This cannot be undone.`
-    );
+    const confirmed = window.confirm(`Permanently delete "${product.name}"? This cannot be undone.`);
     if (!confirmed) return;
 
     setDeletingId(product.id);
@@ -90,7 +77,7 @@ export default function ProductManagementPage() {
         return;
       }
 
-      setProducts((current) => current.filter((p) => p.id !== product.id));
+      loadProducts();
     } catch (error) {
       console.error("Delete product error:", error);
       alert("Something went wrong. Please try again.");
@@ -112,14 +99,11 @@ export default function ProductManagementPage() {
         />
 
         <main className="p-8">
-          {/* Tabs: Active Listings vs Rejected */}
           <div className="mb-5 flex gap-1 border-b border-slate-200">
             <button
               onClick={() => setActiveTab("ACTIVE")}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                activeTab === "ACTIVE"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === "ACTIVE" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-700"
               }`}
             >
               Active Listings
@@ -127,27 +111,17 @@ export default function ProductManagementPage() {
             <button
               onClick={() => setActiveTab("REJECTED")}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                activeTab === "REJECTED"
-                  ? "border-b-2 border-red-600 text-red-600"
-                  : "text-slate-500 hover:text-slate-700"
+                activeTab === "REJECTED" ? "border-b-2 border-red-600 text-red-600" : "text-slate-500 hover:text-slate-700"
               }`}
             >
-              Rejected ({rejectedCount})
+              Rejected
             </button>
           </div>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  Category: {category}
-                </option>
-              ))}
-            </select>
+            <p className="text-xs text-slate-500">
+              {pagination ? `Showing ${products.length} of ${pagination.totalCount}` : ""}
+            </p>
 
             <Link
               href="/admin/products/approvals"
@@ -160,7 +134,7 @@ export default function ProductManagementPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading products...</p>
-            ) : filtered.length === 0 ? (
+            ) : products.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">
                 {activeTab === "REJECTED" ? "No rejected products." : "No products match your filters."}
               </p>
@@ -181,7 +155,7 @@ export default function ProductManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((product) => (
+                  {products.map((product) => (
                     <tr key={product.id} className="text-[12px] text-slate-600">
                       <td className="px-5 py-3">
                         <div className="h-11 w-11 overflow-hidden rounded-md bg-slate-100">
@@ -251,9 +225,13 @@ export default function ProductManagementPage() {
             )}
           </div>
 
-          <p className="mt-3 text-xs text-slate-400">
-            Showing {filtered.length} {activeTab === "REJECTED" ? "rejected" : "active"} product(s)
-          </p>
+          {pagination && (
+            <Pagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </main>
       </div>
     </div>
