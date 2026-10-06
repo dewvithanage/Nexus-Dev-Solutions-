@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
+import { validatePassword } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,18 +10,24 @@ export async function POST(request: NextRequest) {
       newPassword?: string;
     };
 
-    if (!token || !newPassword) {
+    if (
+      !token ||
+      !newPassword ||
+      typeof token !== "string" ||
+      typeof newPassword !== "string"
+    ) {
       return NextResponse.json(
         { message: "Reset token and new password are required." },
         { status: 400 }
       );
     }
 
-    if (newPassword.length < 6) {
-      return NextResponse.json(
-        { message: "Password must be at least 6 characters." },
-        { status: 400 }
-      );
+    // Same password rules as registration (8-72 characters, at least one
+    // letter and one number). Without this, a reset link was a way around
+    // them: any 6-character password was accepted here.
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return NextResponse.json({ message: passwordError }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({ where: { resetToken: token } });
