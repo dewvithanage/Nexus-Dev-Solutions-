@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 
+import { validatePassword, PASSWORD_RULES_HINT } from "@/lib/validation";
+
 // useSearchParams() requires a Suspense boundary in Next.js's App Router,
 // otherwise the build fails. This wrapper is the fix.
 export default function ResetPasswordPage() {
@@ -35,8 +37,11 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters.");
+    // Same rules the server enforces (and registration uses); checked here
+    // first only so the person gets an instant message.
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
@@ -104,6 +109,7 @@ function ResetPasswordForm() {
                 onChange={(event) => setNewPassword(event.target.value)}
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
               />
+              <p className="mt-1 text-[11px] text-slate-400">{PASSWORD_RULES_HINT}</p>
             </div>
 
             <div>
