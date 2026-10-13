@@ -20,7 +20,11 @@ export async function GET() {
       id: category.id,
       name: category.name,
       slug: category.slug,
-      icon: category.icon,
+      // Category has no icon column in schema.prisma, so reading
+      // category.icon failed the type check (and the build). null is what
+      // the client always received at runtime; the Home and Categories
+      // pages already fall back to a default icon for it.
+      icon: null,
       productCount: category._count.products,
     }));
 
