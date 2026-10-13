@@ -24,6 +24,16 @@ describe("POST /api/auth/login", () => {
     expect(session).toMatchObject({ userId: user.id, role: "ENTREPRENEUR" });
   });
 
+  it("accepts the email in a different letter case than it was registered with", async () => {
+    const user = await createEntrepreneur();
+    await prisma.user.update({ where: { id: user.id }, data: { email: "Mixed.Case@Example.com" } });
+
+    const response = await login({ email: "mixed.case@example.com", password: TEST_PASSWORD });
+
+    expect(response.status).toBe(200);
+    expect((await verifySessionToken(response.cookies.get(SESSION_COOKIE_NAME)!.value))!.userId).toBe(user.id);
+  });
+
   it("rejects a wrong password with 401 and no cookie", async () => {
     const user = await createEntrepreneur();
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { newPasswordField, parseJsonBody } from "@/lib/request-validation";
+import { hashResetToken } from "@/lib/reset-token";
 
 const resetPasswordSchema = z
   .object({
@@ -23,8 +24,9 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const { token, newPassword } = parsed.data;
 
+    // The database holds only the hash of the token (lib/reset-token.ts).
     const user = await prisma.user.findUnique({
-      where: { resetToken: token },
+      where: { resetToken: hashResetToken(token) },
       omit: { resetTokenExpiry: false },
     });
 

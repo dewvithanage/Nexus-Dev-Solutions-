@@ -1,3 +1,5 @@
+import { existsSync, rmSync } from "fs";
+import path from "path";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSessionToken, hashPassword } from "@/lib/auth";
@@ -155,4 +157,26 @@ export async function createOrder(
       items: { create: { productId, quantity: 1, unitPriceAtOrder: 500 } },
     },
   });
+}
+
+// Text pretending to be a PNG: right name and type, wrong content.
+export function fakePngFile() {
+  return new File(["<html><script>alert(1)</script></html>"], "evil.png", { type: "image/png" });
+}
+
+// Uploads land in public/uploads; tests check the file and then remove it.
+export function uploadedFileExists(url: string) {
+  return existsSync(path.join(process.cwd(), "public", url));
+}
+
+export async function removeUploadedTestFiles() {
+  const [images, proofs, logos] = await Promise.all([
+    prisma.productImage.findMany({ select: { url: true } }),
+    prisma.salesConfirmation.findMany({ select: { proofImageUrl: true } }),
+    prisma.business.findMany({ where: { logoUrl: { not: null } }, select: { logoUrl: true } }),
+  ]);
+  const urls = [...images.map((i) => i.url), ...proofs.map((p) => p.proofImageUrl), ...logos.map((l) => l.logoUrl!)];
+  for (const url of urls) {
+    if (url.startsWith("/uploads/")) rmSync(path.join(process.cwd(), "public", url), { force: true });
+  }
 }

@@ -46,6 +46,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("ALL");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadNotifications();
@@ -56,21 +57,36 @@ export default function NotificationsPage() {
     try {
       const response = await fetch("/api/notifications");
       const data = await response.json();
-      if (response.ok) setNotifications(data.notifications);
+      if (response.ok) {
+        setNotifications(data.notifications);
+      } else {
+        setError(data.message || "Unable to load notifications.");
+      }
     } catch (error) {
       console.error("Load notifications error:", error);
+      setError("Unable to load notifications. Please refresh the page.");
     } finally {
       setLoading(false);
     }
   }
 
+  // The list is only updated once the server has saved the change, so the
+  // page never shows something as read that is still unread in the database.
   async function handleMarkOneRead(id: string) {
-    await fetch(`/api/notifications/${id}`, { method: "PATCH" });
+    const response = await fetch(`/api/notifications/${id}`, { method: "PATCH" }).catch(() => null);
+    if (!response?.ok) {
+      setError("Unable to mark the notification as read.");
+      return;
+    }
     setNotifications((previous) => previous.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   }
 
   async function handleMarkAllRead() {
-    await fetch("/api/notifications", { method: "PATCH" });
+    const response = await fetch("/api/notifications", { method: "PATCH" }).catch(() => null);
+    if (!response?.ok) {
+      setError("Unable to mark notifications as read.");
+      return;
+    }
     setNotifications((previous) => previous.map((n) => ({ ...n, isRead: true })));
   }
 
@@ -116,6 +132,12 @@ export default function NotificationsPage() {
               Mark all as read
             </button>
           </div>
+
+          {error && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
 
           <div className="space-y-3">
             {loading ? (

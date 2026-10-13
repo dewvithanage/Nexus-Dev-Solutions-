@@ -92,10 +92,10 @@ export default function UploadSalesConfirmationPage() {
                   <p className="mt-2 text-sm font-semibold text-slate-700">
                     Drag & Drop Delivery Photo or Receipt here
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Supports PNG, JPG up to 10MB</p>
+                  <p className="mt-1 text-xs text-slate-400">Supports PNG, JPG or WebP up to 5MB</p>
                 </>
               )}
-              <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} className="hidden" />
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileChange} className="hidden" />
             </label>
 
             <div className="mt-5">

@@ -37,14 +37,22 @@ export default function CompletedSalesPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/orders/mine")
-      .then((response) => response.json())
-      .then((data) => {
+      .then(async (response) => {
+        const data = await response.json();
+        // A failed request (e.g. session expired) must not look like
+        // "No orders yet".
+        if (!response.ok) {
+          setError(data.message || "Unable to load orders.");
+          return;
+        }
         setOrders(data.orders || []);
         setStats(data.stats || null);
       })
+      .catch(() => setError("Unable to load orders. Please refresh the page."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -103,6 +111,8 @@ export default function CompletedSalesPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading orders...</p>
+            ) : error ? (
+              <p className="p-8 text-sm text-red-600">{error}</p>
             ) : orders.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No orders yet.</p>
             ) : (

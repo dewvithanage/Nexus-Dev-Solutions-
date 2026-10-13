@@ -18,6 +18,7 @@ export default function EditProductPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviewUrls, setNewPreviewUrls] = useState<string[]>([]);
   const [status, setStatus] = useState("");
@@ -111,11 +112,12 @@ export default function EditProductPage() {
     setNewPreviewUrls((previous) => [...previous, ...filesToAdd.map((file) => URL.createObjectURL(file))]);
   }
 
+  // Hidden straight away, but only deleted on the server when the form is
+  // submitted (DELETE /api/products/mine/[productId]/images/[imageId]), so
+  // pressing Cancel keeps the image.
   function removeExistingImage(imageId: string) {
-    // Just removes it from the local view for now — actual deletion
-    // would need a DELETE endpoint; keeping this simple since the
-    // requirements don't call for full image management, just adding.
     setExistingImages((previous) => previous.filter((image) => image.id !== imageId));
+    setRemovedImageIds((previous) => [...previous, imageId]);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -158,6 +160,18 @@ export default function EditProductPage() {
       if (!response.ok) {
         setError(data.message || "Unable to update product.");
         return;
+      }
+
+      // Removals go first, so they free up slots for the new images.
+      for (const imageId of removedImageIds) {
+        const removeResponse = await fetch(`/api/products/mine/${params.productId}/images/${imageId}`, {
+          method: "DELETE",
+        });
+        if (!removeResponse.ok) {
+          const removeData = await removeResponse.json().catch(() => ({}));
+          setError(`Changes saved, but an image couldn't be removed: ${removeData.message || "please try again"}`);
+          return;
+        }
       }
 
       if (newFiles.length > 0) {
