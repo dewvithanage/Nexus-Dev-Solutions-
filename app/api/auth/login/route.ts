@@ -54,8 +54,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Case-insensitive, matching registration's duplicate check: an account
+    // registered as "Test@Gmail.com" can sign in as "test@gmail.com".
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
       // The hash is hidden from every other query (lib/prisma.ts); login is
       // the one place that needs it.
       omit: { passwordHash: false, sessionVersion: false },
