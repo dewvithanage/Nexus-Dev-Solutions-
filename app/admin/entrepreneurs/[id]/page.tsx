@@ -101,32 +101,32 @@ export default function EntrepreneurDetailsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <div className="flex h-[46px] items-center justify-between border-b border-[#E2E8F0] bg-white px-5">
+        <div className="flex min-h-[46px] flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E2E8F0] bg-white px-4 py-2 sm:px-5">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-[13px] font-semibold text-slate-700 hover:text-slate-900"
+            className="flex items-center gap-2 text-left text-[13px] font-semibold text-slate-700 hover:text-slate-900"
           >
             <ArrowLeft size={16} />
             Reviewing Application {entrepreneur ? `— ${entrepreneur.user.name}` : ""}
           </button>
 
           {entrepreneur?.status === "PENDING" && (
-            <div className="flex gap-2">
+            <div className="flex w-full gap-2 sm:w-auto">
               <button
                 onClick={handleReject}
                 disabled={actionLoading}
-                className="rounded-md bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60"
+                className="flex-1 whitespace-nowrap rounded-md bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60 sm:flex-none"
               >
                 Reject Business
               </button>
               <button
                 onClick={handleApprove}
                 disabled={actionLoading}
-                className="rounded-md bg-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-60"
+                className="flex-1 whitespace-nowrap rounded-md bg-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-60 sm:flex-none"
               >
                 Approve & Activate
               </button>
@@ -134,7 +134,7 @@ export default function EntrepreneurDetailsPage() {
           )}
         </div>
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {loading ? (
             <p className="text-sm text-slate-500">Loading...</p>
           ) : !entrepreneur ? (

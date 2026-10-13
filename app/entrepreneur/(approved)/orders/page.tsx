@@ -57,14 +57,14 @@ export default function CompletedSalesPage() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Sales & Orders History" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
-          <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
+          <section className="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex justify-between">
                 <p className="text-xs font-medium text-slate-500">Total Sales Revenue</p>
@@ -108,7 +108,7 @@ export default function CompletedSalesPage() {
             </div>
           </section>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading orders...</p>
             ) : error ? (
@@ -116,7 +116,7 @@ export default function CompletedSalesPage() {
             ) : orders.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No orders yet.</p>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
                     <th className="px-5 py-3">Order ID</th>

@@ -60,13 +60,13 @@ export default function SaleDetailsView({ order }: { order: SaleDetails }) {
   const seller = order.business.entrepreneurProfile;
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title={`Transaction Audit: TX-${order.id.slice(-4)}`} notificationsHref="/admin/notifications" />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {actionError && (
             <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">
               {actionError}
@@ -94,7 +94,7 @@ export default function SaleDetailsView({ order }: { order: SaleDetails }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-white p-5">
                   <h3 className="text-sm font-bold text-slate-900">Buyer Information</h3>
                   <p className="mt-2 text-sm font-medium text-slate-800">{order.buyerName}</p>
@@ -106,7 +106,7 @@ export default function SaleDetailsView({ order }: { order: SaleDetails }) {
                   <p className="mt-2 text-sm font-medium text-slate-800">
                     {seller.user.name} ({order.business.businessName})
                   </p>
-                  <p className="text-xs text-slate-500">{seller.user.email}</p>
+                  <p className="break-all text-xs text-slate-500">{seller.user.email}</p>
                   <p className="mt-1 text-xs text-blue-600">{seller.university}</p>
                 </div>
               </div>

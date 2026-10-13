@@ -77,7 +77,7 @@ export default async function RecentOrders() {
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         {recentOrders.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-sm font-medium text-slate-700">
@@ -89,7 +89,7 @@ export default async function RecentOrders() {
             </p>
           </div>
         ) : (
-          <table className="w-full text-left">
+          <table className="w-full min-w-[640px] text-left">
             <thead className="bg-[#f8fafc]">
               <tr className="text-[10px] text-slate-500">
                 <th className="px-5 py-3 font-medium">Order ID</th>

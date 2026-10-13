@@ -83,7 +83,7 @@ export default function AdminNotificationsView({ notifications }: { notification
     .filter((n) => term === "" || n.title.toLowerCase().includes(term) || n.message.toLowerCase().includes(term));
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -94,7 +94,7 @@ export default function AdminNotificationsView({ notifications }: { notification
           searchPlaceholder="Search notifications..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {error && (
             <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">
               {error}

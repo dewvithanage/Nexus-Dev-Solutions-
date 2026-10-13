@@ -40,7 +40,7 @@ export default function RankingsView({ period, data }: { period: PeriodKey; data
   const firstRankOnPage = 4 + (pagination.currentPage - 1) * pagination.pageSize;
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -51,7 +51,7 @@ export default function RankingsView({ period, data }: { period: PeriodKey; data
           searchPlaceholder="Search entrepreneur or business..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="mb-5 flex items-center gap-2">
             {periods.map((p) => (
               <button
@@ -96,8 +96,8 @@ export default function RankingsView({ period, data }: { period: PeriodKey; data
                     </div>
                   )
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                    <table className="w-full text-left">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                    <table className="w-full min-w-[640px] text-left">
                       <thead className="bg-[#f8fafc]">
                         <tr className="text-[10px] font-semibold text-slate-500">
                           <th className="px-5 py-3">Rank</th>

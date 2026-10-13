@@ -7,13 +7,13 @@ import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader
 // Shown for an order id that doesn't exist (or isn't a valid id).
 export default function SaleNotFound() {
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title="Transaction Audit" notificationsHref="/admin/notifications" />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white p-8 text-center">
             <SearchX size={28} className="mx-auto text-slate-400" />
             <h2 className="mt-3 text-base font-bold text-slate-900">Order not found</h2>

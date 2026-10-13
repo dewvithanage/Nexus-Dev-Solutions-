@@ -59,7 +59,7 @@ export default function ReportsView({ report }: { report: ReportSummary }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -70,7 +70,7 @@ export default function ReportsView({ report }: { report: ReportSummary }) {
           searchPlaceholder="Search category..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-bold text-slate-900">Platform Performance Overview</h2>
             <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export default function ReportsView({ report }: { report: ReportSummary }) {
             </p>
           )}
 
-          <section className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex justify-between">
                 <p className="text-xs font-medium text-slate-500">Platform Total Revenue</p>

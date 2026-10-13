@@ -33,13 +33,13 @@ export default function AdminPageError({ title, error, reset }: AdminPageErrorPr
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title={title} notificationsHref="/admin/notifications" />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div role="alert" className="mx-auto max-w-lg rounded-xl border border-red-200 bg-white p-8 text-center">
             <AlertTriangle size={28} className="mx-auto text-red-500" />
             <h2 className="mt-3 text-base font-bold text-slate-900">We couldn&apos;t load this page</h2>

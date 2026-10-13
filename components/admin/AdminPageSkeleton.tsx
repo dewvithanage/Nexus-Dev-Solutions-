@@ -8,13 +8,13 @@ type Layout = "table" | "stats" | "detail" | "split";
 // blocks shaped like the content that is coming.
 export default function AdminPageSkeleton({ title, layout = "table" }: { title: string; layout?: Layout }) {
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title={title} notificationsHref="/admin/notifications" />
 
-        <main className="p-8" aria-busy="true" aria-live="polite">
+        <main className="p-4 sm:p-6 lg:p-8" aria-busy="true" aria-live="polite">
           <span className="sr-only">Loading {title}…</span>
           <div className="animate-pulse">
             {layout === "stats" && <StatsSkeleton />}
@@ -38,7 +38,7 @@ function TableSkeleton() {
         <Block className="h-8 w-24" />
         <Block className="h-8 w-28" />
       </div>
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <Block className="h-9 w-full rounded-none bg-slate-100" />
         {Array.from({ length: 8 }, (_, i) => (
           <div key={i} className="flex items-center gap-6 border-t border-slate-100 px-5 py-4">
@@ -60,7 +60,7 @@ function StatsSkeleton() {
         <Block className="h-5 w-56" />
         <Block className="h-8 w-64" />
       </div>
-      <div className="mb-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
           <div key={i} className="rounded-xl border border-slate-200 bg-white p-5">
             <Block className="h-3 w-28" />
@@ -82,7 +82,7 @@ function DetailSkeleton() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
       <div className="space-y-5">
         <div className="h-40 rounded-xl border border-slate-200 bg-white p-6"><Block className="h-full w-full bg-slate-100" /></div>
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="h-28 rounded-xl border border-slate-200 bg-white" />
           <div className="h-28 rounded-xl border border-slate-200 bg-white" />
         </div>

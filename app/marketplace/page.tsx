@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
 
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
@@ -21,6 +21,8 @@ export default function MarketplacePage() {
   const [maxPrice, setMaxPrice] = useState(5000);
   const [sort, setSort] = useState("newest");
   const [page, setPage] = useState(1);
+  // Phones only: filters start collapsed so the products are visible first.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -93,9 +95,19 @@ export default function MarketplacePage() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_1fr]">
           {/* Filters sidebar */}
-          <aside className="h-fit rounded-xl border border-slate-200 bg-white p-5">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-bold text-slate-900">Filters</h2>
+          <aside className="h-fit rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
+            <div className={`flex items-center justify-between ${filtersOpen ? "mb-4" : "lg:mb-4"}`}>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen((open) => !open)}
+                aria-expanded={filtersOpen}
+                aria-controls="marketplace-filters"
+                className="flex items-center gap-2 lg:pointer-events-none"
+              >
+                <SlidersHorizontal size={15} className="text-slate-500 lg:hidden" />
+                <h2 className="text-sm font-bold text-slate-900">Filters</h2>
+                <ChevronDown size={15} className={`text-slate-500 transition-transform lg:hidden ${filtersOpen ? "rotate-180" : ""}`} />
+              </button>
               <button
                 onClick={() => {
                   setSelectedCategory("");
@@ -108,6 +120,7 @@ export default function MarketplacePage() {
               </button>
             </div>
 
+            <div id="marketplace-filters" className={filtersOpen ? "" : "hidden lg:block"}>
             <div className="border-t border-slate-100 pt-4">
               <p className="mb-2 text-xs font-semibold text-slate-700">Category</p>
               <div className="space-y-2">
@@ -161,6 +174,7 @@ export default function MarketplacePage() {
                 <option value="price_desc">Price: High to Low</option>
                 <option value="rating">Best Rating</option>
               </select>
+            </div>
             </div>
           </aside>
 
