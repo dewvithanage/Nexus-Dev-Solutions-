@@ -1,46 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { handleRouteError, jsonError } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
+import { publicBusinessWhere, publicProductWhere } from "@/lib/public-visibility";
 
-// Public — anyone can view a business's storefront page, no login needed.
-// This is different from /api/entrepreneurs/me (which requires the
-// entrepreneur to be logged in and only shows their OWN business).
+// Public storefront. Only shown once an admin has approved the
+// entrepreneur; a pending or rejected business gets 404, as if it didn't
+// exist. Different from /api/entrepreneurs/me, which is the signed-in
+// entrepreneur's own (private) view.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ businessId: string }> }
 ) {
   try {
     const { businessId } = await params;
+    if (!idField.safeParse(businessId).success) return jsonError(404, "Business not found.");
 
-    const business = await prisma.business.findUnique({
-      where: { id: businessId },
-      include: {
-        entrepreneurProfile: { include: { user: true } },
+    const business = await prisma.business.findFirst({
+      where: { id: businessId, ...publicBusinessWhere },
+      select: {
+        id: true,
+        businessName: true,
+        description: true,
+        logoUrl: true,
+        entrepreneurProfile: {
+          select: { university: true, bio: true, whatsappNumber: true, user: { select: { name: true } } },
+        },
         products: {
-          where: { status: "APPROVED" },
-          include: { images: true, reviews: true, category: true },
+          where: publicProductWhere,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            ratingAverage: true,
+            ratingCount: true,
+            images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+          },
         },
       },
     });
 
     if (!business) {
-      return NextResponse.json({ message: "Business not found." }, { status: 404 });
+      return jsonError(404, "Business not found.");
     }
-
-    const products = business.products.map((product) => {
-      const averageRating =
-        product.reviews.length > 0
-          ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
-          : null;
-
-      return {
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        imageUrl: product.images[0]?.url ?? null,
-        averageRating: averageRating ? Number(averageRating.toFixed(1)) : null,
-        reviewCount: product.reviews.length,
-      };
-    });
 
     return NextResponse.json({
       business: {
@@ -53,10 +56,16 @@ export async function GET(
         bio: business.entrepreneurProfile.bio,
         whatsappNumber: business.entrepreneurProfile.whatsappNumber,
       },
-      products,
+      products: business.products.map((product) => ({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        imageUrl: product.images[0]?.url ?? null,
+        averageRating: product.ratingCount > 0 ? Number(product.ratingAverage.toFixed(1)) : null,
+        reviewCount: product.ratingCount,
+      })),
     });
   } catch (error) {
-    console.error("Get business storefront error:", error);
-    return NextResponse.json({ message: "Unable to load business." }, { status: 500 });
+    return handleRouteError(error, "Get business storefront error", { fallback: "Unable to load business." });
   }
 }
