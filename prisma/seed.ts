@@ -312,6 +312,17 @@ async function main() {
     }
   }
 
+  // Reviews were created directly above, so fill in each product's stored
+  // rating summary (normally kept up to date by the review routes).
+  await prisma.$executeRaw`
+    UPDATE "Product" p
+    SET "ratingCount" = r.cnt, "ratingAverage" = r.avg
+    FROM (
+      SELECT "productId", COUNT(*)::int AS cnt, AVG("rating")::double precision AS avg
+      FROM "Review" GROUP BY "productId"
+    ) r
+    WHERE r."productId" = p."id"`;
+
   console.log("Demo data ready. Test with:");
   console.log(`  Reviews page: /products/${demoProduct.id}/reviews`);
   console.log(`  Demo order id: ${demoOrder.id} (visible in the demo entrepreneur's Orders page)`);
