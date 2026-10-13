@@ -34,7 +34,10 @@ type EntrepreneurContext = {
 // status, but every route that creates or changes shop data refuses them.
 export async function requireEntrepreneur(
   { approvedOnly = true }: { approvedOnly?: boolean } = {}
-): Promise<(EntrepreneurContext & { error?: never }) | { error: NextResponse }> {
+): Promise<
+  | (EntrepreneurContext & { error?: undefined })
+  | { error: NextResponse; user?: undefined; profile?: undefined; business?: undefined }
+> {
   const user = await getCurrentUser();
   if (!user) return { error: jsonError(401, "Not authenticated.") };
 

@@ -167,9 +167,14 @@ export default function AddProductPage() {
         });
 
         if (!imageResponse.ok) {
-          // Don't block the whole flow if only the image step fails —
-          // the product itself was created successfully either way.
-          console.error("Image upload failed, but product was created.");
+          // The product itself was created; tell the person why the images
+          // weren't added so they can add them from Edit Product.
+          const imageData = await imageResponse.json().catch(() => ({}));
+          alert(
+            `Product submitted, but the images couldn't be added: ${imageData.message || "upload failed"} You can add them from Edit Product.`
+          );
+          router.push("/entrepreneur/products");
+          return;
         }
       }
 
