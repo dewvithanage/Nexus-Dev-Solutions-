@@ -1,31 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField, optionalText, parseJsonBody } from "@/lib/request-validation";
 
-// Separate from approve/reject on purpose — saving a note shouldn't
-// change the product's status, so it gets its own small endpoint instead
-// of overloading the approve/reject routes with an unrelated field.
+const notesSchema = z.object({ adminNotes: optionalText(2000, "Notes") }).strict();
+
+// Separate from approve/reject on purpose — saving a note shouldn't change
+// the product's status.
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const { adminNotes } = (await request.json()) as { adminNotes?: string };
+    if (!idField.safeParse(id).success) return jsonError(404, "Product not found.");
+
+    const parsed = await parseJsonBody(request, notesSchema);
+    if (parsed.error) return parsed.error;
 
     const product = await prisma.product.update({
       where: { id },
-      data: { adminNotes: adminNotes || null },
+      data: { adminNotes: parsed.data.adminNotes },
+      select: { id: true, adminNotes: true },
     });
 
     return NextResponse.json({ message: "Notes saved.", product });
   } catch (error) {
-    console.error("Save admin notes error:", error);
-    return NextResponse.json({ message: "Unable to save notes." }, { status: 500 });
+    return handleRouteError(error, "Save admin notes error", {
+      notFound: "Product not found.",
+      fallback: "Unable to save notes.",
+    });
   }
 }

@@ -16,7 +16,8 @@ export default async function AdminDashboardPage() {
     pendingEntrepreneurs,
     pendingProducts,
     activeProducts,
-    orders,
+    ordersCount,
+    verifiedSales,
     recentEntrepreneurs,
     recentProducts,
   ] = await Promise.all([
@@ -24,11 +25,14 @@ export default async function AdminDashboardPage() {
     prisma.entrepreneurProfile.count({ where: { status: "PENDING" } }),
     prisma.product.count({ where: { status: "PENDING" } }),
     prisma.product.count({ where: { status: "APPROVED" } }),
-    prisma.order.findMany({ where: { status: { not: "CANCELLED" } } }),
+    prisma.order.count({ where: { status: { not: "CANCELLED" } } }),
+    // Only admin-verified sales count as revenue, the same rule Reports and
+    // Rankings use, so the numbers agree across pages.
+    prisma.order.aggregate({ where: { status: "VERIFIED" }, _sum: { totalAmount: true } }),
     prisma.entrepreneurProfile.findMany({
       take: 5,
       orderBy: { appliedAt: "desc" },
-      include: { user: true, business: true },
+      include: { user: { select: { name: true } }, business: true },
     }),
     prisma.product.findMany({
       take: 5,
@@ -37,7 +41,7 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  const totalSalesVolume = orders.reduce((sum, order) => sum + Number(order.totalAmount), 0);
+  const totalSalesVolume = Number(verifiedSales._sum.totalAmount ?? 0);
 
   // Combine the two "recent activity" lists into one, sorted newest first.
   // This is a simple stand-in for a real audit log — Sprint 2 could add a
@@ -77,7 +81,7 @@ export default async function AdminDashboardPage() {
           pendingProducts={pendingProducts}
           activeProducts={activeProducts}
           totalSalesVolume={totalSalesVolume}
-          ordersCount={orders.length}
+          ordersCount={ordersCount}
           activity={activity}
         />
       </div>
