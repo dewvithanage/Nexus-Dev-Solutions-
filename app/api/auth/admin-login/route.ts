@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     // passwords against one admin account," which is the realistic
     // threat for a system with only one or two known admin emails.
     const rateLimitKey = email.toLowerCase().trim();
-    const lockStatus = isLockedOut(rateLimitKey);
+    const lockStatus = await isLockedOut(rateLimitKey);
     if (lockStatus.locked) {
       return NextResponse.json(
         {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // isn't an admin — this avoids telling a stranger "that email exists
     // but isn't an admin", which would leak information.
     if (!user || user.role !== "ADMIN") {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const passwordIsCorrect = await verifyPassword(password, user.passwordHash);
 
     if (!passwordIsCorrect) {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     // Successful login — clear any prior failed attempts for this email
     // so a legitimate admin isn't left partway toward a lockout from
     // earlier typos.
-    clearAttempts(rateLimitKey);
+    await clearAttempts(rateLimitKey);
 
     const token = await createSessionToken({
       userId: user.id,

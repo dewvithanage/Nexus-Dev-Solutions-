@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionToken } from "@/lib/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
+import { parseJsonBody } from "@/lib/request-validation";
+
+// Only email and password are accepted; any other field is a 400. The email
+// format isn't checked here: a malformed email simply won't match an account.
+const loginSchema = z
+  .object({
+    email: z
+      .string({ required_error: "Email and password are required." })
+      .trim()
+      .min(1, "Email and password are required.")
+      .max(254, "Email is too long."),
+    password: z
+      .string({ required_error: "Email and password are required." })
+      .min(1, "Email and password are required.")
+      .max(200, "Password is too long."),
+  })
+  .strict();
 
 // Handles entrepreneur login.
 // On success, sets an httpOnly cookie containing a signed session token.
@@ -13,28 +31,17 @@ import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limi
 // 10 minutes, that email is locked for 5 minutes (same limiter as admin login).
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body as { email?: string; password?: string };
-
-    if (
-      !email ||
-      !password ||
-      typeof email !== "string" ||
-      typeof password !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Email and password are required." },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, loginSchema);
+    if (parsed.error) return parsed.error;
+    const { email, password } = parsed.data;
 
     // The prefix keeps this counter separate from the admin login's, and the
     // lower-casing means "A@x.com" and "a@x.com" share one counter.
-    const rateLimitKey = `entrepreneur-login:${email.trim().toLowerCase()}`;
+    const rateLimitKey = `entrepreneur-login:${email.toLowerCase()}`;
 
     // Checked BEFORE looking the user up, so a locked email gets the same
     // answer whether or not an account exists for it.
-    const lockout = isLockedOut(rateLimitKey);
+    const lockout = await isLockedOut(rateLimitKey);
     if (lockout.locked) {
       return NextResponse.json(
         {
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest) {
     // were counted, an attacker could tell which emails are registered by
     // seeing which ones eventually lock.
     if (!user || user.role !== "ENTREPRENEUR") {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -66,7 +73,7 @@ export async function POST(request: NextRequest) {
     const passwordIsCorrect = await verifyPassword(password, user.passwordHash);
 
     if (!passwordIsCorrect) {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // A successful login wipes the failed-attempt counter.
-    clearAttempts(rateLimitKey);
+    await clearAttempts(rateLimitKey);
 
     const token = await createSessionToken({
       userId: user.id,

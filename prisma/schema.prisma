@@ -76,6 +76,15 @@ model User {
   @@index([role])
 }
 
+// Failed login attempts per email (see lib/rate-limit.ts). "key" is
+// "<login type>:<lower-cased email>".
+model LoginAttempt {
+  key            String    @id
+  count          Int       @default(0)
+  firstAttemptAt DateTime
+  lockedUntil    DateTime?
+}
+
 model EntrepreneurProfile {
   id     String @id @default(cuid())
   userId String @unique
