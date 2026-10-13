@@ -39,6 +39,9 @@ export default function BusinessProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Shows the server's message when loading, saving or the logo upload
+  // fails (e.g. an invalid WhatsApp number), instead of failing silently.
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function loadProfile() {
@@ -62,9 +65,12 @@ export default function BusinessProfilePage() {
             whatsappNumber: p.whatsappNumber ?? "",
             bio: p.bio ?? "",
           });
+        } else {
+          setError(data.message || "Unable to load your profile.");
         }
       } catch (error) {
         console.error("Load profile error:", error);
+        setError("Unable to load your profile. Please refresh the page.");
       } finally {
         setLoading(false);
       }
@@ -81,18 +87,29 @@ export default function BusinessProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setError("");
     const formData = new FormData();
     formData.append("logo", file);
 
-    const response = await fetch("/api/entrepreneurs/me/logo", { method: "POST", body: formData });
-    const data = await response.json();
-    if (response.ok) setLogoUrl(data.business.logoUrl);
+    try {
+      const response = await fetch("/api/entrepreneurs/me/logo", { method: "POST", body: formData });
+      const data = await response.json();
+      if (response.ok) {
+        setLogoUrl(data.business.logoUrl);
+      } else {
+        setError(data.message || "Unable to upload logo.");
+      }
+    } catch (error) {
+      console.error("Upload logo error:", error);
+      setError("Unable to upload logo. Please try again.");
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setSaved(false);
+    setError("");
 
     try {
       const response = await fetch("/api/entrepreneurs/me", {
@@ -104,7 +121,13 @@ export default function BusinessProfilePage() {
       if (response.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.message || "Unable to save your profile.");
       }
+    } catch (error) {
+      console.error("Save profile error:", error);
+      setError("Unable to save your profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -154,6 +177,12 @@ export default function BusinessProfilePage() {
                 </button>
               </div>
             </div>
+
+            {error && (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
               <div className="space-y-5">
@@ -250,7 +279,7 @@ export default function BusinessProfilePage() {
                   </div>
                   <label className="mt-3 inline-block cursor-pointer rounded-md border border-slate-300 px-4 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     Replace Logo
-                    <input type="file" accept="image/png,image/jpeg" onChange={handleLogoChange} className="hidden" />
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleLogoChange} className="hidden" />
                   </label>
                 </section>
 
