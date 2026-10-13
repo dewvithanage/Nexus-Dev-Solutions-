@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminDashboardBody from "@/components/admin/AdminDashboardBody";
 import { prisma } from "@/lib/prisma";
@@ -8,8 +9,16 @@ import { getCurrentUser } from "@/lib/session";
 // some numbers. All the interactive parts (the header's search box,
 // filtering Recent Activity) now live in AdminDashboardBody, a client
 // component this just hands the already-fetched data to.
+//
+// The page checks the session itself instead of relying on middleware:
+// middleware can only see that a cookie is validly signed, not that it was
+// revoked (logout, password reset). Without this, a copied admin cookie
+// could still open this page after logout and see the platform figures.
 export default async function AdminDashboardPage() {
   const user = await getCurrentUser();
+  if (!user || user.role !== "ADMIN") {
+    redirect("/admin/login");
+  }
 
   const [
     totalEntrepreneurs,
@@ -75,7 +84,7 @@ export default async function AdminDashboardPage() {
 
       <div className="min-w-0 flex-1">
         <AdminDashboardBody
-          adminName={user?.name || "Administrator"}
+          adminName={user.name}
           totalEntrepreneurs={totalEntrepreneurs}
           pendingEntrepreneurs={pendingEntrepreneurs}
           pendingProducts={pendingProducts}
