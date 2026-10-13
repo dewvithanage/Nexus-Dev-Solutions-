@@ -1,57 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import { isValidEmailFormat, validatePassword } from "@/lib/validation";
+import { emailField, isPrismaError, newPasswordField, parseJsonBody } from "@/lib/request-validation";
+
+// Optional text fields: an empty or blank string counts as "not given".
+const optionalText = (max: number, label: string) =>
+  z
+    .string({ invalid_type_error: `${label} must be text.` })
+    .trim()
+    .max(max, `${label} must be at most ${max} characters.`)
+    .optional()
+    .transform((value) => (value ? value : undefined));
+
+const phonePattern = /^\+?[0-9 ()-]{7,20}$/;
+
+const registerSchema = z
+  .object({
+    fullName: z
+      .string({ required_error: "Full name, email and password are required." })
+      .trim()
+      .min(1, "Full name, email and password are required.")
+      .max(100, "Full name must be at most 100 characters."),
+    email: emailField,
+    password: newPasswordField,
+    phone: optionalText(20, "Phone").refine(
+      (value) => value === undefined || phonePattern.test(value),
+      "Please enter a valid phone number."
+    ),
+    whatsappNumber: optionalText(20, "WhatsApp number").refine(
+      (value) => value === undefined || phonePattern.test(value),
+      "Please enter a valid WhatsApp number."
+    ),
+    businessName: optionalText(100, "Business name"),
+  })
+  .strict();
 
 // Handles entrepreneur registration.
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Any real-looking email address is allowed (client request), and the
+    // password must follow the shared rules. Fields such as role or status
+    // are rejected: a new account is always a PENDING entrepreneur.
+    const parsed = await parseJsonBody(request, registerSchema);
+    if (parsed.error) return parsed.error;
 
-    const {
-      fullName,
-      email,
-      phone,
-      businessName,
-      whatsappNumber,
-      password,
-    } = body as {
-      fullName?: string;
-      email?: string;
-      phone?: string;
-      businessName?: string;
-      whatsappNumber?: string;
-      password?: string;
-    };
-
-    if (
-      !fullName ||
-      !email ||
-      !password ||
-      typeof email !== "string" ||
-      typeof password !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Full name, email and password are required." },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.trim();
-
-    // Any real-looking email address is allowed now (client request) —
-    // this only rejects obviously malformed input like "asdf".
-    if (!isValidEmailFormat(normalizedEmail)) {
-      return NextResponse.json(
-        { message: "Please enter a valid email address." },
-        { status: 400 }
-      );
-    }
-
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      return NextResponse.json({ message: passwordError }, { status: 400 });
-    }
+    const { fullName, email: normalizedEmail, phone, businessName, whatsappNumber, password } =
+      parsed.data;
 
     // Case-insensitive, so "Test@Gmail.com" can't register as a second
     // account next to "test@gmail.com". Now that any email is allowed,
@@ -135,6 +130,15 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    // Two sign-ups with the same email at the same moment can both pass the
+    // check above; the unique index on User.email stops the second one.
+    if (isPrismaError(error, "P2002")) {
+      return NextResponse.json(
+        { message: "An account with this email already exists." },
+        { status: 409 }
+      );
+    }
+
     console.error("Registration error:", error);
 
     return NextResponse.json(

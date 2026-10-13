@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { parseJsonBody } from "@/lib/request-validation";
+
+// The email format isn't checked: an unknown or malformed email gets the
+// same generic answer, so nothing reveals which emails are registered.
+const forgotPasswordSchema = z
+  .object({
+    email: z
+      .string({ required_error: "Email is required." })
+      .trim()
+      .min(1, "Email is required.")
+      .max(254, "Email is too long."),
+  })
+  .strict();
 
 // Generates a password reset token valid for 1 hour, and emails the link to
 // the user via Gmail (see lib/email.ts).
@@ -15,16 +29,9 @@ import { sendPasswordResetEmail } from "@/lib/email";
 // and get a working reset link back.
 export async function POST(request: NextRequest) {
   try {
-    const { email } = (await request.json()) as {
-      email?: string;
-    };
-
-    if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { message: "Email is required." },
-        { status: 400 }
-      );
-    }
+    const parsed = await parseJsonBody(request, forgotPasswordSchema);
+    if (parsed.error) return parsed.error;
+    const { email } = parsed.data;
 
     const user = await prisma.user.findUnique({
       where: { email },

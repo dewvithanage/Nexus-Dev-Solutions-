@@ -1,34 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import { validatePassword } from "@/lib/validation";
+import { newPasswordField, parseJsonBody } from "@/lib/request-validation";
+
+const resetPasswordSchema = z
+  .object({
+    // forgot-password issues tokens as 32 random bytes in hex.
+    token: z
+      .string({ required_error: "Reset token and new password are required." })
+      .regex(/^[a-f0-9]{64}$/, "This reset link is invalid or has expired. Please request a new one."),
+    newPassword: newPasswordField,
+  })
+  .strict();
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, newPassword } = (await request.json()) as {
-      token?: string;
-      newPassword?: string;
-    };
-
-    if (
-      !token ||
-      !newPassword ||
-      typeof token !== "string" ||
-      typeof newPassword !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Reset token and new password are required." },
-        { status: 400 }
-      );
-    }
-
-    // Same password rules as registration (8-72 characters, at least one
-    // letter and one number). Without this, a reset link was a way around
-    // them: any 6-character password was accepted here.
-    const passwordError = validatePassword(newPassword);
-    if (passwordError) {
-      return NextResponse.json({ message: passwordError }, { status: 400 });
-    }
+    // The new password follows the same rules as registration (8-72
+    // characters, at least one letter and one number). Without this, a reset
+    // link was a way around them.
+    const parsed = await parseJsonBody(request, resetPasswordSchema);
+    if (parsed.error) return parsed.error;
+    const { token, newPassword } = parsed.data;
 
     const user = await prisma.user.findUnique({ where: { resetToken: token } });
 

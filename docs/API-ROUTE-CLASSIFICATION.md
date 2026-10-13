@@ -10,6 +10,8 @@ Identity and role always come from the **server-side session cookie**, never fro
 
 Customers are guests by design (no customer accounts), so customer-facing routes are Public.
 
+Request bodies are validated on the server with Zod via `lib/request-validation.ts` (so far: login, register, forgot-password, reset-password and `/api/admin/gallery`). Schemas are strict: a request with a field the endpoint doesn't expect (such as `role`, `status` or `uploadedById`) is rejected with 400. Status codes: 400 invalid input, 401 not signed in, 403 signed in but not allowed, 404 not found, 409 duplicate.
+
 ---
 
 ## Auth
@@ -17,12 +19,12 @@ Customers are guests by design (no customer accounts), so customer-facing routes
 | Method | Endpoint | Class | Rule |
 |---|---|---|---|
 | POST | `/api/auth/register` | Public | Anyone may apply; creates an entrepreneur account in `PENDING` state. Any valid email is accepted; password must be 8–72 characters with a letter and a number. |
-| POST | `/api/auth/login` | Public | Anyone may attempt a login; only accounts with role `ENTREPRENEUR` succeed; failures return one generic 401. |
+| POST | `/api/auth/login` | Public | Anyone may attempt a login; only accounts with role `ENTREPRENEUR` succeed; failures return one generic 401; 5 failed attempts per email locks that email for 5 minutes (stored in the database). |
 | POST | `/api/auth/admin-login` | Public | Anyone may attempt; only role `ADMIN` succeeds; 5 failed attempts per email locks that email for 5 minutes. |
 | POST | `/api/auth/logout` | Public | Clears the caller's own session cookie. |
 | GET | `/api/auth/me` | Authenticated | Returns only the signed-in user's own identity. |
 | POST | `/api/auth/forgot-password` | Public | Anyone may request a reset for an email address; the reset link is only ever delivered by email (shown on screen only when running in development mode), and the response never reveals whether the email is registered. |
-| POST | `/api/auth/reset-password` | Public | Succeeds only with a valid, unexpired reset token. |
+| POST | `/api/auth/reset-password` | Public | Succeeds only with a valid, unexpired reset token; the token works once. |
 
 ## Public marketplace (guest customers)
 
@@ -64,7 +66,7 @@ Rule for every row below: **only a signed-in user with role `ADMIN` may call it;
 | GET, DELETE | `/api/admin/entrepreneurs/[id]` | View / permanently delete an entrepreneur (refused if any of their products has order history). |
 | PATCH | `/api/admin/entrepreneurs/[id]/approve` | Approve a registration and notify the entrepreneur. |
 | PATCH | `/api/admin/entrepreneurs/[id]/reject` | Reject a registration with a reason and notify the entrepreneur. |
-| GET, POST | `/api/admin/gallery` | List / upload gallery images. |
+| GET, POST | `/api/admin/gallery` | List / upload gallery images. The uploader is taken from the session; only real JPG/PNG/WebP files up to 5 MB are accepted. |
 | DELETE | `/api/admin/gallery/[id]` | Remove a gallery image. |
 | GET | `/api/admin/products` | List products (paginated, filtered). |
 | GET, PATCH, DELETE | `/api/admin/products/[id]` | View / change category / permanently delete a product (refused if it has order history). |
