@@ -1,56 +1,20 @@
 import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
 
-export default async function RecentOrders() {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    return null;
-  }
-
-  const profile = await prisma.entrepreneurProfile.findUnique({
-    where: {
-      userId: user.id,
-    },
-    include: {
-      business: true,
-    },
-  });
-
-  if (!profile?.business) {
-    return (
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[16px] font-bold text-[#101828]">
-            Recent Orders
-          </h2>
-
-          <Link
-            href="/entrepreneur/orders"
-            className="text-[11px] font-medium text-blue-600 hover:underline"
-          >
-            View All Orders
-          </Link>
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-          No business found.
-        </div>
-      </section>
-    );
-  }
-
+// The dashboard page has already checked the session and passes in the
+// signed-in entrepreneur's own business id, so this only ever shows that
+// business's orders (and doesn't repeat the session lookup).
+export default async function RecentOrders({ businessId }: { businessId: string }) {
   const recentOrders = await prisma.order.findMany({
     where: {
-      businessId: profile.business.id,
+      businessId,
     },
 
     include: {
       items: {
         include: {
-          product: true,
+          product: { select: { name: true } },
         },
       },
     },
