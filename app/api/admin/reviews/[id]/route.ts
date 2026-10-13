@@ -1,23 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
+import { refreshProductRating } from "@/lib/ratings";
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    await prisma.review.delete({ where: { id } });
+    if (!idField.safeParse(id).success) return jsonError(404, "Review not found.");
+
+    await prisma.$transaction(async (tx) => {
+      const review = await tx.review.delete({ where: { id } });
+      await refreshProductRating(tx, review.productId);
+    });
 
     return NextResponse.json({ message: "Review removed." });
   } catch (error) {
-    console.error("Delete review error:", error);
-    return NextResponse.json({ message: "Unable to remove review." }, { status: 500 });
+    return handleRouteError(error, "Delete review error", {
+      notFound: "Review not found.",
+      fallback: "Unable to remove review.",
+    });
   }
 }

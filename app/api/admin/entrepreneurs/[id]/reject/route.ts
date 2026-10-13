@@ -1,48 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
+
+const rejectSchema = z
+  .object({ rejectionReason: optionalText(500, "Rejection reason") })
+  .strict();
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    const rejectionReason = (body as { rejectionReason?: string }).rejectionReason || null;
+    if (!idField.safeParse(id).success) return jsonError(404, "Entrepreneur not found.");
 
-    const entrepreneur = await prisma.entrepreneurProfile.update({
-      where: { id },
-      data: {
-        status: "REJECTED",
-        reviewedAt: new Date(),
-        reviewedById: admin.id,
-        rejectionReason,
-      },
-    });
+    const parsed = await parseOptionalJsonBody(request, rejectSchema);
+    if (parsed.error) return parsed.error;
+    const { rejectionReason } = parsed.data;
 
-    // FIX: this route previously did NOT create a notification at all.
-    await prisma.notification.create({
-      data: {
-        userId: entrepreneur.userId,
-        type: "SYSTEM",
-        title: "Registration Application Update",
-        message: rejectionReason
-          ? `Your application was not approved: ${rejectionReason}`
-          : "Your application was not approved this time.",
-        relatedEntityType: "EntrepreneurProfile",
-        relatedEntityId: entrepreneur.id,
-      },
+    const current = await prisma.entrepreneurProfile.findUnique({ where: { id }, select: { status: true } });
+    if (!current) return jsonError(404, "Entrepreneur not found.");
+    if (current.status === "REJECTED") return jsonError(409, "This entrepreneur is already rejected.");
+
+    const entrepreneur = await prisma.$transaction(async (tx) => {
+      const updated = await tx.entrepreneurProfile.update({
+        where: { id },
+        data: {
+          status: "REJECTED",
+          reviewedAt: new Date(),
+          reviewedById: auth.admin.id,
+          rejectionReason,
+        },
+      });
+
+      // A rejected account can't sign in, so end any session it still has.
+      await tx.user.update({
+        where: { id: updated.userId },
+        data: { sessionVersion: { increment: 1 } },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: updated.userId,
+          type: "SYSTEM",
+          title: "Registration Application Update",
+          message: rejectionReason
+            ? `Your application was not approved: ${rejectionReason}`
+            : "Your application was not approved this time.",
+          relatedEntityType: "EntrepreneurProfile",
+          relatedEntityId: updated.id,
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json({ message: "Entrepreneur rejected.", entrepreneur });
   } catch (error) {
-    console.error("Reject entrepreneur error:", error);
-    return NextResponse.json({ message: "Unable to reject entrepreneur." }, { status: 500 });
+    return handleRouteError(error, "Reject entrepreneur error", {
+      notFound: "Entrepreneur not found.",
+      fallback: "Unable to reject entrepreneur.",
+    });
   }
 }

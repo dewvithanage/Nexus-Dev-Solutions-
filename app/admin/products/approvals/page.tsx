@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import Pagination from "@/components/admin/Pagination";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
 
 type ProductRow = {
@@ -31,21 +32,34 @@ export default function ProductApprovalPage() {
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
+  }, [activeTab, page]);
 
   async function loadProducts() {
     setLoading(true);
+    setError("");
     try {
-      const query = activeTab === "ALL" ? "" : `?status=${activeTab}`;
-      const response = await fetch(`/api/admin/products${query}`);
+      // "ALL" sends no status filter, so the API returns every listing that
+      // isn't rejected.
+      const params = new URLSearchParams({ page: String(page) });
+      if (activeTab !== "ALL") params.set("status", activeTab);
+      const response = await fetch(`/api/admin/products?${params.toString()}`);
       const data = await response.json();
-      if (response.ok) setProducts(data.products);
+      if (!response.ok) {
+        setError(data.message || "Unable to load submissions.");
+        return;
+      }
+      setProducts(data.products);
+      setTotalPages(data.pagination.totalPages);
     } catch (error) {
       console.error("Load products error:", error);
+      setError("Something went wrong loading submissions.");
     } finally {
       setLoading(false);
     }
@@ -56,12 +70,16 @@ export default function ProductApprovalPage() {
   // but "Preview" still goes to the full Product Submission Audit page.
   async function handleQuickAction(productId: string, action: "approve" | "reject") {
     setActionLoadingId(productId);
+    setError("");
     try {
       const response = await fetch(`/api/admin/products/${productId}/${action}`, {
         method: "PATCH",
       });
       if (response.ok) {
         setProducts((previous) => previous.filter((p) => p.id !== productId));
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setError(data.message || `Unable to ${action} this product.`);
       }
     } finally {
       setActionLoadingId(null);
@@ -80,7 +98,10 @@ export default function ProductApprovalPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPage(1);
+                }}
                 className={`rounded-md px-4 py-2 text-xs font-semibold transition ${
                   activeTab === tab.key
                     ? "bg-blue-600 text-white"
@@ -91,6 +112,10 @@ export default function ProductApprovalPage() {
               </button>
             ))}
           </div>
+
+          {error && (
+            <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">{error}</p>
+          )}
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
@@ -166,6 +191,8 @@ export default function ProductApprovalPage() {
               </table>
             )}
           </div>
+
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </main>
       </div>
     </div>

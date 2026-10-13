@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, requireEntrepreneur } from "@/lib/api-auth";
+import { parseFormBody } from "@/lib/request-validation";
 import { saveUploadedFile } from "@/lib/upload";
+
+const logoSchema = z.object({ logo: z.instanceof(File, { message: "No logo file provided." }) }).strict();
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    const businessId = user?.entrepreneurProfile?.business?.id;
+    const auth = await requireEntrepreneur({ approvedOnly: false });
+    if (auth.error) return auth.error;
 
-    if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
+    const parsed = await parseFormBody(request, logoSchema);
+    if (parsed.error) return parsed.error;
 
-    const formData = await request.formData();
-    const file = formData.get("logo");
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ message: "No logo file provided." }, { status: 400 });
-    }
-
-    const url = await saveUploadedFile(file, "logos");
+    // Throws UploadValidationError (-> 400) for a non-image or oversized file.
+    const url = await saveUploadedFile(parsed.data.logo, "logos");
 
     const business = await prisma.business.update({
-      where: { id: businessId },
+      where: { id: auth.business.id },
       data: { logoUrl: url },
     });
 
     return NextResponse.json({ message: "Logo updated.", business });
   } catch (error) {
-    console.error("Upload logo error:", error);
-    return NextResponse.json({ message: "Unable to upload logo." }, { status: 500 });
+    return handleRouteError(error, "Upload logo error", { fallback: "Unable to upload logo." });
   }
 }

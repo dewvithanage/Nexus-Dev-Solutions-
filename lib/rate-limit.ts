@@ -56,6 +56,38 @@ export async function recordFailedAttempt(key: string): Promise<void> {
   });
 }
 
+// General-purpose limit for public forms (orders, reviews): allows `max`
+// actions per key within `windowMs`, then refuses until the window ends.
+// Uses the same table as the login lockout.
+export async function consumeRateLimit(
+  key: string,
+  max: number,
+  windowMs: number
+): Promise<{ allowed: boolean; retryAfterSeconds?: number }> {
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const record = await tx.loginAttempt.findUnique({ where: { key } });
+
+    if (!record || now.getTime() - record.firstAttemptAt.getTime() > windowMs) {
+      await tx.loginAttempt.upsert({
+        where: { key },
+        create: { key, count: 1, firstAttemptAt: now },
+        update: { count: 1, firstAttemptAt: now, lockedUntil: null },
+      });
+      return { allowed: true };
+    }
+
+    if (record.count >= max) {
+      const retryAfterMs = record.firstAttemptAt.getTime() + windowMs - now.getTime();
+      return { allowed: false, retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)) };
+    }
+
+    await tx.loginAttempt.update({ where: { key }, data: { count: record.count + 1 } });
+    return { allowed: true };
+  });
+}
+
 export async function clearAttempts(key: string): Promise<void> {
   await prisma.loginAttempt.deleteMany({ where: { key } });
 }

@@ -27,6 +27,7 @@ describe("POST /api/auth/register", () => {
     expect(response.status).toBe(201);
     const user = await prisma.user.findUniqueOrThrow({
       where: { email: validBody.email },
+      omit: { passwordHash: false },
       include: { entrepreneurProfile: { include: { business: true } } },
     });
     expect(user.role).toBe("ENTREPRENEUR");

@@ -101,13 +101,13 @@ export default function AdminDashboardBody({
 
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex justify-between">
-              <p className="text-xs font-medium text-slate-500">Total Sales Volume</p>
+              <p className="text-xs font-medium text-slate-500">Verified Sales Volume</p>
               <DollarSign size={17} className="text-blue-600" />
             </div>
             <h3 className="mt-5 text-[22px] font-bold text-[#101828]">
               Rs. {totalSalesVolume.toFixed(2)}
             </h3>
-            <p className="mt-1 text-[10px] text-slate-500">{ordersCount} orders placed</p>
+            <p className="mt-1 text-[10px] text-slate-500">{ordersCount} orders placed in total</p>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-5">

@@ -46,6 +46,28 @@ export async function parseJsonBody<S extends z.ZodTypeAny>(
   return parseData(schema, body);
 }
 
+// Same as parseJsonBody, but an empty body counts as {} (for actions such as
+// "reject" where every field is optional and some buttons send nothing).
+export async function parseOptionalJsonBody<S extends z.ZodTypeAny>(
+  request: NextRequest,
+  schema: S
+): Promise<Parsed<z.infer<S>>> {
+  let text: string;
+  try {
+    text = await request.text();
+  } catch {
+    return badRequest("Request body could not be read.");
+  }
+  if (text.trim() === "") return parseData(schema, {});
+  let body: unknown;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    return badRequest("Request body must be valid JSON.");
+  }
+  return parseData(schema, body);
+}
+
 // Reads multipart form data and validates it. Text fields arrive as strings
 // and files as File objects; every key must be listed in the schema.
 export async function parseFormBody<S extends z.ZodTypeAny>(
@@ -93,9 +115,56 @@ export const newPasswordField = z
     if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
   });
 
-// Prisma ids in this project are cuids. Checking the shape first means a
-// junk id gets a clean 404 instead of reaching the database.
-export const idField = z.string().regex(/^[a-z0-9]{20,40}$/i, "Invalid id.");
+// Ids are cuids, plus a few readable ones from the seed data
+// (e.g. "demo-product-cardigan").
+export const idField = z
+  .string({ required_error: "An id is required.", invalid_type_error: "Invalid id." })
+  .regex(/^[A-Za-z0-9_-]{1,64}$/, "Invalid id.");
+
+// ?page=&pageSize= on list endpoints. pageSize is capped so nobody can ask
+// for the whole table in one request.
+export function pageQuery(defaultPageSize = 10, maxPageSize = 50) {
+  return {
+    page: z.coerce.number().int("Invalid page.").min(1, "Invalid page.").max(100_000).default(1),
+    pageSize: z.coerce
+      .number()
+      .int("Invalid page size.")
+      .min(1, "Invalid page size.")
+      .max(maxPageSize, `pageSize can be at most ${maxPageSize}.`)
+      .default(defaultPageSize),
+  };
+}
+
+// Free-text fields: trimmed, length-limited, and an empty string means "not given".
+export function optionalText(max: number, label: string) {
+  return z
+    .string({ invalid_type_error: `${label} must be text.` })
+    .trim()
+    .max(max, `${label} must be at most ${max} characters.`)
+    .optional()
+    .nullable()
+    .transform((value) => (value ? value : null));
+}
+
+export function requiredText(max: number, label: string) {
+  return z
+    .string({ required_error: `${label} is required.`, invalid_type_error: `${label} must be text.` })
+    .trim()
+    .min(1, `${label} is required.`)
+    .max(max, `${label} must be at most ${max} characters.`);
+}
+
+export const phonePattern = /^\+?[0-9 ()-]{7,20}$/;
+
+// Best-effort client IP for rate limiting. Behind Vercel/most proxies the
+// first x-forwarded-for entry is the visitor.
+export function clientIp(request: NextRequest): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 export function isPrismaError(error: unknown, code: "P2002" | "P2025"): boolean {
   return (

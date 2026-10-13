@@ -5,12 +5,12 @@ const prisma = new PrismaClient();
 
 // Categories from the approved Figma design
 const categories = [
-  { name: "Handmade Crafts", slug: "handmade-crafts", icon: "hand" },
-  { name: "Tech & Digital", slug: "tech-digital", icon: "cpu" },
-  { name: "Food & Beverages", slug: "food-beverages", icon: "coffee" },
-  { name: "Services", slug: "services", icon: "scissors" },
-  { name: "Fashion & Apparel", slug: "fashion-apparel", icon: "shirt" },
-  { name: "Art", slug: "art", icon: "palette" },
+  { name: "Handmade Crafts", slug: "handmade-crafts" },
+  { name: "Tech & Digital", slug: "tech-digital" },
+  { name: "Food & Beverages", slug: "food-beverages" },
+  { name: "Services", slug: "services" },
+  { name: "Fashion & Apparel", slug: "fashion-apparel" },
+  { name: "Art", slug: "art" },
 ];
 
 async function main() {
@@ -25,6 +25,15 @@ async function main() {
 
   console.log(`Seeded ${categories.length} categories.`);
 
+  await seedAdmin();
+
+  // Demo products, reviews and an order are for local development only.
+  // They must never be added to the real database, so they are opt-in.
+  if (process.env.SEED_DEMO_DATA !== "true") {
+    console.log("Skipped demo data (set SEED_DEMO_DATA=true to add it on a local database).");
+    return;
+  }
+
   // ---------------------------------------------------------------
   // DEMO DATA
   // Lets the team test Reviews and WhatsApp Confirmation.
@@ -36,7 +45,7 @@ async function main() {
 
   if (!demoCategory) return;
 
-  const demoPasswordHash = await bcrypt.hash("Demo@1234", 10);
+  const demoPasswordHash = await bcrypt.hash(requiredEnv("SEED_DEMO_PASSWORD"), 10);
 
   // Create demo entrepreneur
   const demoUser = await prisma.user.upsert({
@@ -54,7 +63,7 @@ async function main() {
           status: "APPROVED",
           business: {
             create: {
-              businessName: "Stanford Wool",
+              businessName: "Sarah's Wool Studio",
             },
           },
         },
@@ -100,7 +109,7 @@ async function main() {
       businessId: business.id,
       buyerName: "Imesha Hansani",
       buyerPhone: "+94770001111",
-      deliveryLocation: "Stanford Green Library main entrance",
+      deliveryLocation: "USJ main library entrance",
       totalAmount: 1500,
       items: {
         create: {
@@ -303,33 +312,56 @@ async function main() {
     }
   }
 
-  // ---------------------------------------------------------------
-  // ADMIN ACCOUNT
-  // Admins are created through the seed instead of self-registration.
-  // ---------------------------------------------------------------
+  // Reviews were created directly above, so fill in each product's stored
+  // rating summary (normally kept up to date by the review routes).
+  await prisma.$executeRaw`
+    UPDATE "Product" p
+    SET "ratingCount" = r.cnt, "ratingAverage" = r.avg
+    FROM (
+      SELECT "productId", COUNT(*)::int AS cnt, AVG("rating")::double precision AS avg
+      FROM "Review" GROUP BY "productId"
+    ) r
+    WHERE r."productId" = p."id"`;
 
-  const adminPasswordHash = await bcrypt.hash("Admin@1234", 10);
+  console.log("Demo data ready. Test with:");
+  console.log(`  Reviews page: /products/${demoProduct.id}/reviews`);
+  console.log(`  Demo order id: ${demoOrder.id} (visible in the demo entrepreneur's Orders page)`);
+}
 
-  await prisma.user.upsert({
-    where: { email: "admin@startupspark.lk" },
-    update: {},
-    create: {
-      email: "admin@startupspark.lk",
-      passwordHash: adminPasswordHash,
+// Passwords never live in this file: it is on GitHub, so anything written
+// here is public. They come from environment variables instead.
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value || value.length < 12) {
+    throw new Error(`${name} must be set (at least 12 characters) to run the seed.`);
+  }
+  return value;
+}
+
+// ---------------------------------------------------------------
+// ADMIN ACCOUNT
+// Admins are created through the seed instead of self-registration.
+// An existing admin's password is never overwritten.
+// ---------------------------------------------------------------
+async function seedAdmin() {
+  const email = process.env.SEED_ADMIN_EMAIL || "admin@startupspark.lk";
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    console.log(`Admin account ${email} already exists; password left unchanged.`);
+    return;
+  }
+
+  await prisma.user.create({
+    data: {
+      email,
+      passwordHash: await bcrypt.hash(requiredEnv("SEED_ADMIN_PASSWORD"), 10),
       role: "ADMIN",
       name: "Super Admin",
     },
   });
 
-  console.log(
-    "Seeded admin account: admin@startupspark.lk / Admin@1234"
-  );
-
-  console.log("Demo data ready. Test with:");
-  console.log(`  Reviews page: /products/${demoProduct.id}/reviews`);
-  console.log(
-    `  Order confirmation: /order-confirmation/${demoOrder.id}`
-  );
+  console.log(`Created admin account ${email}.`);
 }
 
 main()

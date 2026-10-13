@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
-import { parseFormBody, parseSearchParams } from "@/lib/request-validation";
+import { requireAdmin } from "@/lib/api-auth";
+import { pageQuery, parseFormBody, parseSearchParams } from "@/lib/request-validation";
 import { UploadValidationError } from "@/lib/upload";
 
 const ITEMS_PER_PAGE = 10;
 
 const listQuerySchema = z
   .object({
-    page: z.coerce.number().int().min(1, "Invalid page.").default(1),
-    pageSize: z.coerce.number().int().min(1).max(50, "pageSize can be at most 50.").default(ITEMS_PER_PAGE),
+    ...pageQuery(ITEMS_PER_PAGE),
   })
   .strict();
 
@@ -27,18 +26,6 @@ const uploadSchema = z
       .transform((value) => (value ? value : null)),
   })
   .strict();
-
-// 401 when nobody is signed in, 403 when signed in but not an admin.
-async function requireAdmin() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return { error: NextResponse.json({ message: "Not authenticated." }, { status: 401 }) };
-  }
-  if (user.role !== "ADMIN") {
-    return { error: NextResponse.json({ message: "Forbidden." }, { status: 403 }) };
-  }
-  return { admin: user };
-}
 
 export async function GET(request: NextRequest) {
   try {

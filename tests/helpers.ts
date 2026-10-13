@@ -60,8 +60,25 @@ export async function createEntrepreneur(status: "PENDING" | "APPROVED" | "REJEC
 // Makes the next Route Handler call run as this user, exactly as if the
 // browser sent a valid session cookie.
 export async function signInAs(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
-  const token = await createSessionToken({ userId: user.id, role: user.role });
-  cookieJar.set(SESSION_COOKIE_NAME, token);
+  cookieJar.set(SESSION_COOKIE_NAME, await sessionTokenFor(user));
+}
+
+// A valid session token for this user, carrying their current sessionVersion.
+export async function sessionTokenFor(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
+  const { sessionVersion } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { sessionVersion: true },
+  });
+  return createSessionToken({ userId: user.id, role: user.role, sessionVersion });
+}
+
+// The secret columns are hidden from normal queries (lib/prisma.ts); tests
+// that need to check them ask for them here.
+export function userWithSecrets(id: string) {
+  return prisma.user.findUniqueOrThrow({
+    where: { id },
+    omit: { passwordHash: false, resetToken: false, resetTokenExpiry: false, sessionVersion: false },
+  });
 }
 
 export function signOut() {
@@ -91,4 +108,51 @@ export function tinyPngFile(name = "pixel.png") {
     "base64"
   );
   return new File([bytes], name, { type: "image/png" });
+}
+
+export async function createCategory(name = `Category ${++counter}`) {
+  return prisma.category.create({
+    data: { name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") },
+  });
+}
+
+export async function createProduct(
+  businessId: string,
+  { status = "APPROVED", stockQuantity = 10, price = 500 }: {
+    status?: "PENDING" | "APPROVED" | "REJECTED";
+    stockQuantity?: number;
+    price?: number;
+  } = {}
+) {
+  const category = await createCategory();
+  return prisma.product.create({
+    data: {
+      businessId,
+      categoryId: category.id,
+      name: `Product ${++counter}`,
+      description: "A test product.",
+      price,
+      stockQuantity,
+      status,
+    },
+  });
+}
+
+// An order for one unit of the product, in the given state.
+export async function createOrder(
+  businessId: string,
+  productId: string,
+  status: "PENDING" | "PENDING_VERIFICATION" | "VERIFIED" = "PENDING"
+) {
+  return prisma.order.create({
+    data: {
+      businessId,
+      buyerName: "Test Buyer",
+      buyerPhone: "0771234567",
+      deliveryLocation: "Main library",
+      totalAmount: 500,
+      status,
+      items: { create: { productId, quantity: 1, unitPriceAtOrder: 500 } },
+    },
+  });
 }

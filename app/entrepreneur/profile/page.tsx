@@ -38,6 +38,7 @@ export default function BusinessProfilePage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -84,15 +85,18 @@ export default function BusinessProfilePage() {
     const formData = new FormData();
     formData.append("logo", file);
 
+    setSaveError("");
     const response = await fetch("/api/entrepreneurs/me/logo", { method: "POST", body: formData });
     const data = await response.json();
     if (response.ok) setLogoUrl(data.business.logoUrl);
+    else setSaveError(data.message || "Unable to upload logo.");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
     setSaved(false);
+    setSaveError("");
 
     try {
       const response = await fetch("/api/entrepreneurs/me", {
@@ -104,7 +108,12 @@ export default function BusinessProfilePage() {
       if (response.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        setSaveError(data.message || "Unable to save your profile.");
       }
+    } catch {
+      setSaveError("Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -154,6 +163,10 @@ export default function BusinessProfilePage() {
                 </button>
               </div>
             </div>
+
+            {saveError && (
+              <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">{saveError}</p>
+            )}
 
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.7fr_1fr]">
               <div className="space-y-5">

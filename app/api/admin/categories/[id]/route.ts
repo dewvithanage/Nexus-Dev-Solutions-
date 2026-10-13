@@ -1,35 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField, parseJsonBody, requiredText } from "@/lib/request-validation";
+import { slugify } from "@/lib/slug";
+
+const renameSchema = z.object({ name: requiredText(60, "Category name") }).strict();
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const { name, description } = (await request.json()) as {
-      name?: string;
-      description?: string;
-    };
+    if (!idField.safeParse(id).success) return jsonError(404, "Category not found.");
 
-    const category = await prisma.category.update({
-      where: { id },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(description !== undefined && { description }),
-      },
-    });
+    const parsed = await parseJsonBody(request, renameSchema);
+    if (parsed.error) return parsed.error;
+    const { name } = parsed.data;
+
+    const slug = slugify(name);
+    if (!slug) return jsonError(400, "Category name must contain letters or numbers.");
+
+    // The slug is part of the category's public URL, so it follows the name.
+    const category = await prisma.category.update({ where: { id }, data: { name, slug } });
 
     return NextResponse.json({ message: "Category updated.", category });
   } catch (error) {
-    console.error("Update category error:", error);
-    return NextResponse.json({ message: "Unable to update category." }, { status: 500 });
+    return handleRouteError(error, "Update category error", {
+      notFound: "Category not found.",
+      conflict: "A category with this name already exists.",
+      fallback: "Unable to update category.",
+    });
   }
 }
 
@@ -38,28 +43,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
+    if (!idField.safeParse(id).success) return jsonError(404, "Category not found.");
 
-    // Prevent deleting a category that still has products in it — that
-    // would leave those products pointing at a non-existent category.
+    // A category that still has products can't be deleted — they would be
+    // left pointing at a category that no longer exists.
     const productCount = await prisma.product.count({ where: { categoryId: id } });
     if (productCount > 0) {
-      return NextResponse.json(
-        { message: `Can't delete — ${productCount} product(s) still use this category.` },
-        { status: 400 }
-      );
+      return jsonError(409, `Can't delete — ${productCount} product(s) still use this category.`);
     }
 
     await prisma.category.delete({ where: { id } });
 
     return NextResponse.json({ message: "Category deleted." });
   } catch (error) {
-    console.error("Delete category error:", error);
-    return NextResponse.json({ message: "Unable to delete category." }, { status: 500 });
+    return handleRouteError(error, "Delete category error", {
+      notFound: "Category not found.",
+      fallback: "Unable to delete category.",
+    });
   }
 }

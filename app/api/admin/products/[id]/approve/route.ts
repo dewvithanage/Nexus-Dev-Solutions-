@@ -1,47 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
+    if (!idField.safeParse(id).success) return jsonError(404, "Product not found.");
 
-    const product = await prisma.product.update({
+    const current = await prisma.product.findUnique({
       where: { id },
-      data: {
-        status: "APPROVED",
-        reviewedAt: new Date(),
-        reviewedById: admin.id,
-        rejectionReason: null,
-      },
-      include: {
-        business: { include: { entrepreneurProfile: true } },
-      },
+      select: { status: true, business: { select: { entrepreneurProfile: { select: { status: true } } } } },
     });
+    if (!current) return jsonError(404, "Product not found.");
+    if (current.status === "APPROVED") return jsonError(409, "This product is already approved.");
+    // A product only goes live if its seller is approved too.
+    if (current.business.entrepreneurProfile.status !== "APPROVED") {
+      return jsonError(409, "Approve the entrepreneur's registration before approving their products.");
+    }
 
-    // FIX: this route previously did NOT create a notification at all.
-    await prisma.notification.create({
-      data: {
-        userId: product.business.entrepreneurProfile.userId,
-        type: "PRODUCT",
-        title: "Your Product Has Been Approved!",
-        message: `"${product.name}" was successfully reviewed and is now live in the student catalog.`,
-        relatedEntityType: "Product",
-        relatedEntityId: product.id,
-      },
+    const product = await prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id },
+        data: {
+          status: "APPROVED",
+          reviewedAt: new Date(),
+          reviewedById: auth.admin.id,
+          rejectionReason: null,
+        },
+        include: { business: { include: { entrepreneurProfile: true } } },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: updated.business.entrepreneurProfile.userId,
+          type: "PRODUCT",
+          title: "Your Product Has Been Approved!",
+          message: `"${updated.name}" was successfully reviewed and is now live in the student catalog.`,
+          relatedEntityType: "Product",
+          relatedEntityId: updated.id,
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json({ message: "Product approved and published.", product });
   } catch (error) {
-    console.error("Approve product error:", error);
-    return NextResponse.json({ message: "Unable to approve product." }, { status: 500 });
+    return handleRouteError(error, "Approve product error", {
+      notFound: "Product not found.",
+      fallback: "Unable to approve product.",
+    });
   }
 }

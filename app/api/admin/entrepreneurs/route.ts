@@ -1,33 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { handleRouteError, requireAdmin } from "@/lib/api-auth";
+import { pageQuery, parseSearchParams } from "@/lib/request-validation";
 
-const ITEMS_PER_PAGE = 10;
+const listQuerySchema = z.object({
+  // Entrepreneur Management uses tabs (ACTIVE = everyone not rejected);
+  // the Registration Approval queue filters by one exact status instead.
+  tab: z.enum(["ACTIVE", "REJECTED"]).default("ACTIVE"),
+  status: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+  search: z.string().trim().max(100).optional(),
+  university: z.string().trim().max(100).optional(),
+  category: z.string().trim().max(100).optional(),
+  ...pageQuery(),
+});
 
-// NOTE: filtering (tab, search, university, category) now happens HERE,
-// server-side, rather than in the browser. This has to move server-side
-// together with pagination — if filtering stayed client-side while
-// pagination happened server-side, a search would only ever look
-// through whichever 10 rows happened to be on the current page, not
-// the full matching set. Same reasoning applies to the Products route.
+// NOTE: filtering (tab, search, university, category) happens HERE,
+// server-side, together with pagination. If filtering stayed client-side,
+// a search would only look through the 10 rows on the current page.
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
-    const params = request.nextUrl.searchParams;
-    const tab = params.get("tab") || "ACTIVE"; // "ACTIVE" | "REJECTED"
-    const search = params.get("search")?.trim();
-    const university = params.get("university");
-    const category = params.get("category");
-    const page = Math.max(1, Number(params.get("page")) || 1);
-    const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
+    const query = parseSearchParams(request, listQuerySchema);
+    if (query.error) return query.error;
+    const { tab, status, search, university, category, page, pageSize } = query.data;
 
     const where: Prisma.EntrepreneurProfileWhereInput = {
-      status: tab === "REJECTED" ? "REJECTED" : { not: "REJECTED" },
+      status: status ?? (tab === "REJECTED" ? "REJECTED" : { not: "REJECTED" }),
     };
 
     if (university && university !== "All") {
@@ -48,16 +50,28 @@ export async function GET(request: NextRequest) {
     const totalCount = await prisma.entrepreneurProfile.count({ where });
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
+    // Counts and totals are calculated by the database, instead of loading
+    // every product and order of every entrepreneur on the page.
     const profiles = await prisma.entrepreneurProfile.findMany({
       where,
       orderBy: { appliedAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        user: true,
-        business: { include: { products: true, orders: { where: { status: "VERIFIED" } } } },
+        user: { select: { name: true } },
+        business: { include: { _count: { select: { products: true } } } },
       },
     });
+
+    const businessIds = profiles.flatMap((profile) => (profile.business ? [profile.business.id] : []));
+    const verifiedSales = await prisma.order.groupBy({
+      by: ["businessId"],
+      where: { businessId: { in: businessIds }, status: "VERIFIED" },
+      _sum: { totalAmount: true },
+    });
+    const salesByBusiness = new Map(
+      verifiedSales.map((row) => [row.businessId, Number(row._sum.totalAmount ?? 0)])
+    );
 
     const entrepreneurs = profiles.map((profile) => ({
       id: profile.id,
@@ -65,8 +79,8 @@ export async function GET(request: NextRequest) {
       university: profile.university,
       businessName: profile.business?.businessName ?? "—",
       primaryCategory: profile.business?.businessCategory ?? "—",
-      productCount: profile.business?.products.length ?? 0,
-      salesVolume: profile.business?.orders.reduce((sum, o) => sum + Number(o.totalAmount), 0) ?? 0,
+      productCount: profile.business?._count.products ?? 0,
+      salesVolume: profile.business ? salesByBusiness.get(profile.business.id) ?? 0 : 0,
       status: profile.status,
       appliedAt: profile.appliedAt,
     }));
@@ -76,7 +90,6 @@ export async function GET(request: NextRequest) {
       pagination: { currentPage: page, totalPages, totalCount, pageSize },
     });
   } catch (error) {
-    console.error("Get entrepreneurs error:", error);
-    return NextResponse.json({ message: "Unable to load entrepreneurs." }, { status: 500 });
+    return handleRouteError(error, "Get entrepreneurs error", { fallback: "Unable to load entrepreneurs." });
   }
 }

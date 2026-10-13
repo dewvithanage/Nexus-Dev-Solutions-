@@ -1,120 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireEntrepreneur } from "@/lib/api-auth";
+import { idField, parseJsonBody } from "@/lib/request-validation";
+import { updateProductSchema } from "@/lib/product-schema";
 
-// Separate from the PUBLIC /api/products/[productId] route (which only
-// ever returns APPROVED products). This one is for the entrepreneur
-// managing their OWN product regardless of its status — needed for Edit
-// Product and Product Submission Status to show pending/rejected items.
-async function verifyOwnership(productId: string) {
-  const user = await getCurrentUser();
-  const businessId = user?.entrepreneurProfile?.business?.id;
-
-  if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-    return { error: NextResponse.json({ message: "Unauthorized." }, { status: 401 }) };
-  }
-
+// Separate from the PUBLIC /api/products/[productId] route (which only ever
+// returns APPROVED products). This one is for the entrepreneur managing
+// their OWN product regardless of its status. Someone else's product gets
+// the same 404 as a missing one, so ids can't be probed.
+async function findOwnProduct(productId: string, businessId: string) {
+  if (!idField.safeParse(productId).success) return null;
   const product = await prisma.product.findUnique({
     where: { id: productId },
-    include: { images: true, category: true },
+    include: { images: { orderBy: { sortOrder: "asc" } }, category: true },
   });
-
-  if (!product || product.businessId !== businessId) {
-    return { error: NextResponse.json({ message: "Product not found." }, { status: 404 }) };
-  }
-
-  return { product };
+  return product && product.businessId === businessId ? product : null;
 }
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const { productId } = await params;
-  const result = await verifyOwnership(productId);
-  if (result.error) return result.error;
+  try {
+    const auth = await requireEntrepreneur({ approvedOnly: false });
+    if (auth.error) return auth.error;
 
-  return NextResponse.json({ product: result.product });
+    const { productId } = await params;
+    const product = await findOwnProduct(productId, auth.business.id);
+    if (!product) return jsonError(404, "Product not found.");
+
+    return NextResponse.json({ product });
+  } catch (error) {
+    return handleRouteError(error, "Get own product error", { fallback: "Unable to load product." });
+  }
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
-  const { productId } = await params;
-  const result = await verifyOwnership(productId);
-  if (result.error) return result.error;
-
   try {
-    const body = await request.json();
-    const {
-      name,
-      categoryId,
-      description,
-      price,
-      stockQuantity,
-      tags,
-      onCampusPickup,
-      areaDropOff,
-      postingEnabled,
-    } = body as {
-      name?: string;
-      categoryId?: string;
-      description?: string;
-      price?: number;
-      stockQuantity?: number;
-      tags?: string[];
-      onCampusPickup?: boolean;
-      areaDropOff?: boolean;
-      postingEnabled?: boolean;
-    };
+    const auth = await requireEntrepreneur();
+    if (auth.error) return auth.error;
 
-    // FIX: stockQuantity was previously written straight to the database
-    // with no validation at all — negative numbers, decimals, and even
-    // non-numeric values could all be saved. This is the authoritative
-    // check: the frontend check below is just for a faster/friendlier
-    // error message, but this is what actually protects the database,
-    // since a request can always be sent directly (bypassing the UI).
-    if (stockQuantity !== undefined) {
-      if (
-        typeof stockQuantity !== "number" ||
-        Number.isNaN(stockQuantity) ||
-        !Number.isInteger(stockQuantity) ||
-        stockQuantity < 0
-      ) {
-        return NextResponse.json(
-          { message: "Stock quantity must be a whole number greater than or equal to 0." },
-          { status: 400 }
-        );
-      }
+    const { productId } = await params;
+    const existing = await findOwnProduct(productId, auth.business.id);
+    if (!existing) return jsonError(404, "Product not found.");
+
+    const parsed = await parseJsonBody(request, updateProductSchema);
+    if (parsed.error) return parsed.error;
+    const changes = parsed.data;
+
+    if (changes.categoryId) {
+      const category = await prisma.category.findUnique({ where: { id: changes.categoryId }, select: { id: true } });
+      if (!category) return jsonError(400, "That category doesn't exist.");
     }
 
-    // Editing a rejected product and saving puts it back into the review
-    // queue — that's what "Resubmit" means on the Submission Status page.
-    // An already-approved product edited here goes back to PENDING too,
-    // since an admin should see the changed version before it's public
-    // again (prevents silently changing an approved listing's price/
-    // description without any review).
+    // Any edit puts the product back into the review queue (that's what
+    // "Resubmit" means on the Submission Status page), so an approved
+    // listing can't be silently changed without an admin seeing it.
     const product = await prisma.product.update({
       where: { id: productId },
-      data: {
-        ...(name !== undefined && { name }),
-        ...(categoryId !== undefined && { categoryId }),
-        ...(description !== undefined && { description }),
-        ...(price !== undefined && { price }),
-        ...(stockQuantity !== undefined && { stockQuantity }),
-        ...(tags !== undefined && { tags }),
-        ...(onCampusPickup !== undefined && { onCampusPickup }),
-        ...(areaDropOff !== undefined && { areaDropOff }),
-        ...(postingEnabled !== undefined && { postingEnabled }),
-        status: "PENDING",
-        rejectionReason: null,
-      },
+      data: { ...changes, status: "PENDING", rejectionReason: null },
     });
 
     return NextResponse.json({ message: "Product updated and resubmitted for review.", product });
   } catch (error) {
-    console.error("Update product error:", error);
-    return NextResponse.json({ message: "Unable to update product." }, { status: 500 });
+    return handleRouteError(error, "Update product error", {
+      notFound: "Product not found.",
+      fallback: "Unable to update product.",
+    });
   }
 }

@@ -1,84 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, requireEntrepreneur } from "@/lib/api-auth";
+import { optionalText, parseJsonBody, phonePattern, requiredText } from "@/lib/request-validation";
 
-// Powers BOTH the Business Profile page (edit form) and, indirectly, the
-// public Entrepreneur Profile page (which reads the same Business record
-// through a separate public endpoint — this one requires login).
+// Every field the Business Profile page can edit. Anything else (status,
+// owner ids, logoUrl) is rejected. Pending accounts may edit their profile
+// while they wait for approval.
+const profileSchema = z
+  .object({
+    businessName: requiredText(100, "Business name"),
+    description: optionalText(2000, "Description"),
+    businessCategory: optionalText(60, "Business category"),
+    instagramHandle: optionalText(31, "Instagram handle").refine(
+      (value) => value === null || /^@?[A-Za-z0-9._]{1,30}$/.test(value),
+      "Instagram handle can only contain letters, numbers, dots and underscores."
+    ),
+    // Only http(s) links, so a "javascript:" link can never be saved.
+    websiteUrl: optionalText(200, "Website").refine(
+      (value) => value === null || /^https?:\/\/[^\s]+\.[^\s]+$/i.test(value),
+      "Website must be a full link starting with http:// or https://."
+    ),
+    businessHours: optionalText(200, "Business hours"),
+    pickupLocationNotes: optionalText(500, "Pickup location notes"),
+    university: optionalText(100, "Faculty"),
+    whatsappNumber: optionalText(20, "WhatsApp number").refine(
+      (value) => value === null || phonePattern.test(value),
+      "Please enter a valid WhatsApp number."
+    ),
+    bio: optionalText(1000, "Bio"),
+  })
+  .partial()
+  .strict();
+
+// Powers the Business Profile page (edit form). The public storefront reads
+// the same Business record through /api/businesses/[businessId].
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user || user.role !== "ENTREPRENEUR" || !user.entrepreneurProfile) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
+    const auth = await requireEntrepreneur({ approvedOnly: false });
+    if (auth.error) return auth.error;
 
-    return NextResponse.json({
-      entrepreneurProfile: user.entrepreneurProfile,
-      business: user.entrepreneurProfile.business,
-    });
+    return NextResponse.json({ entrepreneurProfile: auth.profile, business: auth.business });
   } catch (error) {
-    console.error("Get own business error:", error);
-    return NextResponse.json({ message: "Unable to load business profile." }, { status: 500 });
+    return handleRouteError(error, "Get own business error", { fallback: "Unable to load business profile." });
   }
 }
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    const entrepreneurProfileId = user?.entrepreneurProfile?.id;
-    const businessId = user?.entrepreneurProfile?.business?.id;
+    const auth = await requireEntrepreneur({ approvedOnly: false });
+    if (auth.error) return auth.error;
 
-    if (!user || user.role !== "ENTREPRENEUR" || !entrepreneurProfileId || !businessId) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
+    const parsed = await parseJsonBody(request, profileSchema);
+    if (parsed.error) return parsed.error;
+    const { university, whatsappNumber, bio, ...businessFields } = parsed.data;
 
-    const body = await request.json();
-    const {
-      businessName,
-      description,
-      businessCategory,
-      instagramHandle,
-      websiteUrl,
-      businessHours,
-      pickupLocationNotes,
-      university,
-      whatsappNumber,
-      bio,
-    } = body as {
-      businessName?: string;
-      description?: string;
-      businessCategory?: string;
-      instagramHandle?: string;
-      websiteUrl?: string;
-      businessHours?: string;
-      pickupLocationNotes?: string;
-      university?: string;
-      whatsappNumber?: string;
-      bio?: string;
-    };
-
-    // Two separate models get updated here (Business + EntrepreneurProfile)
-    // because the one settings page on the frontend edits fields that live
-    // on both — "Faculty" belongs to EntrepreneurProfile, "Business Name"
-    // belongs to Business, etc.
-    const [business, entrepreneurProfile] = await Promise.all([
+    // The settings page edits fields that live on two tables (Faculty is on
+    // EntrepreneurProfile, Business Name on Business); both update together.
+    const [business, entrepreneurProfile] = await prisma.$transaction([
       prisma.business.update({
-        where: { id: businessId },
-        data: {
-          ...(businessName !== undefined && { businessName }),
-          ...(description !== undefined && { description }),
-          ...(businessCategory !== undefined && { businessCategory }),
-          ...(instagramHandle !== undefined && { instagramHandle }),
-          ...(websiteUrl !== undefined && { websiteUrl }),
-          ...(businessHours !== undefined && { businessHours }),
-          ...(pickupLocationNotes !== undefined && { pickupLocationNotes }),
-        },
+        where: { id: auth.business.id },
+        data: businessFields,
       }),
       prisma.entrepreneurProfile.update({
-        where: { id: entrepreneurProfileId },
+        where: { id: auth.profile.id },
         data: {
           ...(university !== undefined && { university }),
-          ...(whatsappNumber !== undefined && { whatsappNumber }),
+          // The column can't be empty-null; an empty value clears it to "".
+          ...(whatsappNumber !== undefined && { whatsappNumber: whatsappNumber ?? "" }),
           ...(bio !== undefined && { bio }),
         },
       }),
@@ -86,7 +75,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ message: "Profile updated.", business, entrepreneurProfile });
   } catch (error) {
-    console.error("Update business profile error:", error);
-    return NextResponse.json({ message: "Unable to update profile." }, { status: 500 });
+    return handleRouteError(error, "Update business profile error", { fallback: "Unable to update profile." });
   }
 }

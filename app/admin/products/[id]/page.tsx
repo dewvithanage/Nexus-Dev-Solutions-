@@ -41,6 +41,7 @@ export default function AdminProductDetailsPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [categorySaving, setCategorySaving] = useState(false);
   const [categorySaved, setCategorySaved] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     fetch("/api/categories")
@@ -70,28 +71,42 @@ export default function AdminProductDetailsPage() {
   }
 
   async function handleAction(action: "approve" | "reject") {
+    setActionError("");
+    let response: Response;
     if (action === "reject") {
-      const reason = window.prompt("Reason for rejecting this product (optional):") || undefined;
+      const input = window.prompt("Reason for rejecting this product (optional):");
+      // Cancel returns null: stop, instead of rejecting without a reason.
+      if (input === null) return;
       setActionLoading(true);
-      await fetch(`/api/admin/products/${params.id}/reject`, {
+      response = await fetch(`/api/admin/products/${params.id}/reject`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: reason }),
+        body: JSON.stringify({ rejectionReason: input.trim() || undefined }),
       });
     } else {
       setActionLoading(true);
-      await fetch(`/api/admin/products/${params.id}/approve`, { method: "PATCH" });
+      response = await fetch(`/api/admin/products/${params.id}/approve`, { method: "PATCH" });
+    }
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setActionError(data.message || `Unable to ${action} this product.`);
     }
     await loadProduct();
     setActionLoading(false);
   }
 
   async function handleSaveNotes() {
-    await fetch(`/api/admin/products/${params.id}/notes`, {
+    setActionError("");
+    const response = await fetch(`/api/admin/products/${params.id}/notes`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ adminNotes: notes }),
     });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setActionError(data.message || "Unable to save notes.");
+      return;
+    }
     setNotesSaved(true);
     setTimeout(() => setNotesSaved(false), 2000);
   }
@@ -141,6 +156,10 @@ export default function AdminProductDetailsPage() {
             <p className="text-sm text-red-500">Product not found.</p>
           ) : (
             <>
+              {actionError && (
+                <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">{actionError}</p>
+              )}
+
               {/* Status banner + actions */}
               <div className="mb-6 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-6 py-4">
                 <div>

@@ -16,6 +16,9 @@ const secretKey = new TextEncoder().encode(JWT_SECRET);
 export type SessionPayload = {
   userId: string;
   role: "ENTREPRENEUR" | "ADMIN";
+  // Must match User.sessionVersion, or the session is treated as signed
+  // out (see lib/session.ts). Optional so older tokens simply fail the check.
+  sessionVersion?: number;
 };
 
 // Hash a plain text password before saving it to the database.

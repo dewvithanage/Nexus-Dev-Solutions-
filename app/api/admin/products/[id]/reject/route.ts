@@ -1,57 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
+
+const rejectSchema = z
+  .object({ rejectionReason: optionalText(500, "Rejection reason") })
+  .strict();
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
-    const body = await request.json().catch(() => ({}));
-    const rejectionReason = (body as { rejectionReason?: string }).rejectionReason || null;
+    if (!idField.safeParse(id).success) return jsonError(404, "Product not found.");
 
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        status: "REJECTED",
-        reviewedAt: new Date(),
-        reviewedById: admin.id,
-        rejectionReason,
-      },
-      // Need the business -> entrepreneurProfile -> userId chain since
-      // Product itself doesn't store who owns it directly, only which
-      // business does — this is what lets us know who to notify.
-      include: {
-        business: { include: { entrepreneurProfile: true } },
-      },
-    });
+    // The quick-reject button sends no body, so an empty body is allowed.
+    const parsed = await parseOptionalJsonBody(request, rejectSchema);
+    if (parsed.error) return parsed.error;
+    const { rejectionReason } = parsed.data;
 
-    // FIX: this route previously did NOT create a notification at all —
-    // rejecting a product silently updated its status with no way for
-    // the entrepreneur to find out why (or that it happened) other than
-    // manually checking Submission Status.
-    await prisma.notification.create({
-      data: {
-        userId: product.business.entrepreneurProfile.userId,
-        type: "PRODUCT",
-        title: "Product Submission Rejected",
-        message: rejectionReason
-          ? `"${product.name}" was not approved: ${rejectionReason}`
-          : `"${product.name}" was not approved this time.`,
-        relatedEntityType: "Product",
-        relatedEntityId: product.id,
-      },
+    const current = await prisma.product.findUnique({ where: { id }, select: { status: true } });
+    if (!current) return jsonError(404, "Product not found.");
+    if (current.status === "REJECTED") return jsonError(409, "This product is already rejected.");
+
+    const product = await prisma.$transaction(async (tx) => {
+      const updated = await tx.product.update({
+        where: { id },
+        data: {
+          status: "REJECTED",
+          reviewedAt: new Date(),
+          reviewedById: auth.admin.id,
+          rejectionReason,
+        },
+        // Product only stores which business owns it; the chain to the
+        // entrepreneur's user is what tells us who to notify.
+        include: { business: { include: { entrepreneurProfile: true } } },
+      });
+
+      // Without this, the entrepreneur would only find out by checking
+      // Submission Status manually.
+      await tx.notification.create({
+        data: {
+          userId: updated.business.entrepreneurProfile.userId,
+          type: "PRODUCT",
+          title: "Product Submission Rejected",
+          message: rejectionReason
+            ? `"${updated.name}" was not approved: ${rejectionReason}`
+            : `"${updated.name}" was not approved this time.`,
+          relatedEntityType: "Product",
+          relatedEntityId: updated.id,
+        },
+      });
+
+      return updated;
     });
 
     return NextResponse.json({ message: "Product rejected.", product });
   } catch (error) {
-    console.error("Reject product error:", error);
-    return NextResponse.json({ message: "Unable to reject product." }, { status: 500 });
+    return handleRouteError(error, "Reject product error", {
+      notFound: "Product not found.",
+      fallback: "Unable to reject product.",
+    });
   }
 }

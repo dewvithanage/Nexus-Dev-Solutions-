@@ -1,23 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
+    if (!idField.safeParse(id).success) return jsonError(404, "Entrepreneur not found.");
 
     const entrepreneur = await prisma.entrepreneurProfile.findUnique({
       where: { id },
       include: {
-        user: true,
+        // Only what the details page shows. Never the whole User row.
+        user: { select: { id: true, name: true, email: true, phone: true, createdAt: true } },
         business: {
           include: { products: { include: { category: true } } },
         },
@@ -30,8 +31,10 @@ export async function GET(
 
     return NextResponse.json({ entrepreneur });
   } catch (error) {
-    console.error("Get entrepreneur details error:", error);
-    return NextResponse.json({ message: "Unable to load entrepreneur." }, { status: 500 });
+    return handleRouteError(error, "Get entrepreneur details error", {
+      notFound: "Entrepreneur not found.",
+      fallback: "Unable to load entrepreneur.",
+    });
   }
 }
 
@@ -50,17 +53,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const { id } = await params;
+    if (!idField.safeParse(id).success) return jsonError(404, "Entrepreneur not found.");
 
     const entrepreneur = await prisma.entrepreneurProfile.findUnique({
       where: { id },
       include: {
-        user: true,
         business: {
           include: {
             products: { select: { id: true, _count: { select: { orderItems: true } } } },
@@ -102,7 +103,9 @@ export async function DELETE(
 
     return NextResponse.json({ message: "Entrepreneur permanently deleted." });
   } catch (error) {
-    console.error("Delete entrepreneur error:", error);
-    return NextResponse.json({ message: "Unable to delete entrepreneur." }, { status: 500 });
+    return handleRouteError(error, "Delete entrepreneur error", {
+      notFound: "Entrepreneur not found.",
+      fallback: "Unable to delete entrepreneur.",
+    });
   }
 }
