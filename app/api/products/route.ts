@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { jsonError, parseJsonBody, requireEntrepreneur } from "@/lib/api";
+import { productCreateSchema } from "@/lib/schemas";
 
 // Add a new product. Uses the logged-in entrepreneur's own business —
 // never trust a businessId sent from the frontend, always look it up
 // from the session, otherwise someone could add products to someone
-// else's shop just by changing a form value.
+// else's shop just by changing a form value. (A "businessId" or "status"
+// field in the body is rejected outright by the strict schema.)
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    const businessId = user?.entrepreneurProfile?.business?.id;
+    const auth = await requireEntrepreneur();
+    if (auth.error) return auth.error;
 
-    if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-      return NextResponse.json(
-        { message: "You must be logged in as an entrepreneur to add a product." },
-        { status: 401 }
-      );
-    }
+    const parsed = await parseJsonBody(request, productCreateSchema);
+    if (parsed.error) return parsed.error;
 
-    const body = await request.json();
     const {
       name,
       categoryId,
@@ -29,28 +26,21 @@ export async function POST(request: NextRequest) {
       areaDropOff,
       postingEnabled,
       tags,
-    } = body as {
-      name?: string;
-      categoryId?: string;
-      description?: string;
-      price?: number;
-      stockQuantity?: number;
-      onCampusPickup?: boolean;
-      areaDropOff?: boolean;
-      postingEnabled?: boolean;
-      tags?: string[];
-    };
+    } = parsed.data;
 
-    if (!name || !categoryId || !description || price === undefined || stockQuantity === undefined) {
-      return NextResponse.json(
-        { message: "Please fill in all required fields." },
-        { status: 400 }
-      );
+    // Checked up front so a bad id is a clear 400, not a foreign-key
+    // error from the database turning into a 500.
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+    if (!category) {
+      return jsonError("The selected category does not exist.", 400);
     }
 
     const product = await prisma.product.create({
       data: {
-        businessId,
+        businessId: auth.business.id,
         categoryId,
         name,
         description,
@@ -67,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Notify every admin that a new product needs review — populates the
     // "Product Alerts" tab on Admin Notifications.
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" } });
+    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
     if (admins.length > 0) {
       await prisma.notification.createMany({
         data: admins.map((admin) => ({
@@ -99,19 +89,12 @@ export async function POST(request: NextRequest) {
 // Get the logged-in entrepreneur's own products ("My Products" page).
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    const businessId = user?.entrepreneurProfile?.business?.id;
-
-    if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-      return NextResponse.json(
-        { message: "You must be logged in as an entrepreneur." },
-        { status: 401 }
-      );
-    }
+    const auth = await requireEntrepreneur();
+    if (auth.error) return auth.error;
 
     const products = await prisma.product.findMany({
-      where: { businessId },
-      include: { category: true, images: true },
+      where: { businessId: auth.business.id },
+      include: { category: true, images: { orderBy: { sortOrder: "asc" } } },
       orderBy: { createdAt: "desc" },
     });
 

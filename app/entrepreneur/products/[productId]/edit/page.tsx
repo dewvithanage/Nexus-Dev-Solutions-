@@ -18,6 +18,7 @@ export default function EditProductPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<string[]>([]);
   const [newFiles, setNewFiles] = useState<File[]>([]);
   const [newPreviewUrls, setNewPreviewUrls] = useState<string[]>([]);
   const [status, setStatus] = useState("");
@@ -111,11 +112,12 @@ export default function EditProductPage() {
     setNewPreviewUrls((previous) => [...previous, ...filesToAdd.map((file) => URL.createObjectURL(file))]);
   }
 
+  // Hidden straight away, but only deleted on the server when the form is
+  // submitted (DELETE /api/products/mine/[productId]/images/[imageId]), so
+  // pressing Cancel keeps the image.
   function removeExistingImage(imageId: string) {
-    // Just removes it from the local view for now — actual deletion
-    // would need a DELETE endpoint; keeping this simple since the
-    // requirements don't call for full image management, just adding.
     setExistingImages((previous) => previous.filter((image) => image.id !== imageId));
+    setRemovedImageIds((previous) => [...previous, imageId]);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -160,10 +162,35 @@ export default function EditProductPage() {
         return;
       }
 
+      // Removals go first so they free up slots for the new images.
+      const imageProblems: string[] = [];
+      for (const imageId of removedImageIds) {
+        const removeResponse = await fetch(`/api/products/mine/${params.productId}/images/${imageId}`, {
+          method: "DELETE",
+        });
+        if (!removeResponse.ok) {
+          const removeData = await removeResponse.json().catch(() => ({}));
+          imageProblems.push(removeData.message || "An image could not be removed.");
+        }
+      }
+
       if (newFiles.length > 0) {
         const imageFormData = new FormData();
         newFiles.forEach((file) => imageFormData.append("images", file));
-        await fetch(`/api/products/${params.productId}/images`, { method: "POST", body: imageFormData });
+        const uploadResponse = await fetch(`/api/products/${params.productId}/images`, {
+          method: "POST",
+          body: imageFormData,
+        });
+        if (!uploadResponse.ok) {
+          const uploadData = await uploadResponse.json().catch(() => ({}));
+          imageProblems.push(uploadData.message || "New images could not be uploaded.");
+        }
+      }
+
+      if (imageProblems.length > 0) {
+        alert(`Product details were saved and resubmitted, but: ${imageProblems.join(" ")}`);
+        router.push("/entrepreneur/products");
+        return;
       }
 
       alert("Product updated and resubmitted for review!");
@@ -299,7 +326,7 @@ export default function EditProductPage() {
                     <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 text-slate-400">
                       <Plus size={18} />
                       <span className="text-[9px]">Add Image</span>
-                      <input type="file" accept="image/png,image/jpeg" multiple onChange={handleNewImages} className="hidden" />
+                      <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={handleNewImages} className="hidden" />
                     </label>
                   )}
                 </div>

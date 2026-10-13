@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
-import { saveUploadedFile } from "@/lib/upload";
+import { jsonError, requireEntrepreneur } from "@/lib/api";
+import { saveUploadedFile, UploadValidationError } from "@/lib/upload";
+
+// Not exported: Next.js only allows HTTP handlers and route config to be
+// exported from a route.ts file.
+const MAX_PRODUCT_IMAGES = 4;
 
 // Uploads up to 4 images for a product the logged-in entrepreneur owns.
 // Called from the Add Product page right after the product itself is
@@ -11,32 +15,44 @@ export async function POST(
   { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    const user = await getCurrentUser();
-    const businessId = user?.entrepreneurProfile?.business?.id;
-
-    if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-      return NextResponse.json({ message: "You must be logged in as an entrepreneur." }, { status: 401 });
-    }
+    const auth = await requireEntrepreneur();
+    if (auth.error) return auth.error;
 
     const { productId } = await params;
 
     // Make sure this product actually belongs to the logged-in
     // entrepreneur's own business — otherwise anyone could attach images
     // to someone else's product just by guessing a product id.
-    const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product || product.businessId !== businessId) {
-      return NextResponse.json({ message: "Product not found." }, { status: 404 });
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { businessId: true },
+    });
+    if (!product || product.businessId !== auth.business.id) {
+      return jsonError("Product not found.", 404);
     }
 
-    const formData = await request.formData();
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonError("Send the images as multipart/form-data.", 400);
+    }
     const files = formData.getAll("images").filter((entry): entry is File => entry instanceof File);
 
     if (files.length === 0) {
-      return NextResponse.json({ message: "No images were provided." }, { status: 400 });
+      return jsonError("No images were provided.", 400);
     }
 
     const existingCount = await prisma.productImage.count({ where: { productId } });
-    const remainingSlots = Math.max(0, 4 - existingCount);
+    const remainingSlots = Math.max(0, MAX_PRODUCT_IMAGES - existingCount);
+
+    if (remainingSlots === 0) {
+      return jsonError(
+        `This product already has the maximum of ${MAX_PRODUCT_IMAGES} images. Remove one first.`,
+        409
+      );
+    }
+
     const filesToSave = files.slice(0, remainingSlots);
 
     const createdImages = [];
@@ -48,8 +64,14 @@ export async function POST(
       createdImages.push(image);
     }
 
-    return NextResponse.json({ images: createdImages }, { status: 201 });
+    return NextResponse.json(
+      { images: createdImages, skipped: files.length - filesToSave.length },
+      { status: 201 }
+    );
   } catch (error) {
+    if (error instanceof UploadValidationError) {
+      return jsonError(error.message, 400);
+    }
     console.error("Upload product images error:", error);
     return NextResponse.json({ message: "Unable to upload images." }, { status: 500 });
   }
