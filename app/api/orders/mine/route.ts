@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { requireEntrepreneur } from "@/lib/api";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    const businessId = user?.entrepreneurProfile?.business?.id;
+    const auth = await requireEntrepreneur();
+    if (auth.error) return auth.error;
 
-    if (!user || user.role !== "ENTREPRENEUR" || !businessId) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
-
+    // Only orders placed with the caller's own business.
     const orders = await prisma.order.findMany({
-      where: { businessId },
+      where: { businessId: auth.business.id },
       orderBy: { createdAt: "desc" },
       include: {
-        items: { include: { product: true } },
+        items: { include: { product: { select: { name: true } } } },
         salesConfirmation: true,
       },
     });
