@@ -1,70 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import { isValidEmailFormat, validatePassword } from "@/lib/validation";
+import { isUniqueViolation, jsonError, parseJsonBody } from "@/lib/api";
+import { registerSchema } from "@/lib/schemas";
 
 // Handles entrepreneur registration.
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Validates every field on the server (lib/schemas.ts) and rejects any
+    // field the form does not send, so nobody can register with e.g.
+    // "role": "ADMIN" or "status": "APPROVED". The email is trimmed and
+    // lower-cased, and the password must pass the shared password rules.
+    const parsed = await parseJsonBody(request, registerSchema);
+    if (parsed.error) return parsed.error;
 
-    const {
-      fullName,
-      email,
-      phone,
-      businessName,
-      whatsappNumber,
-      password,
-    } = body as {
-      fullName?: string;
-      email?: string;
-      phone?: string;
-      businessName?: string;
-      whatsappNumber?: string;
-      password?: string;
-    };
-
-    if (
-      !fullName ||
-      !email ||
-      !password ||
-      typeof email !== "string" ||
-      typeof password !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Full name, email and password are required." },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.trim();
-
-    // Any real-looking email address is allowed now (client request) —
-    // this only rejects obviously malformed input like "asdf".
-    if (!isValidEmailFormat(normalizedEmail)) {
-      return NextResponse.json(
-        { message: "Please enter a valid email address." },
-        { status: 400 }
-      );
-    }
-
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      return NextResponse.json({ message: passwordError }, { status: 400 });
-    }
+    const { fullName, email, phone, businessName, whatsappNumber, password } = parsed.data;
 
     // Case-insensitive, so "Test@Gmail.com" can't register as a second
-    // account next to "test@gmail.com". Now that any email is allowed,
-    // this matters much more than it did with the FHSS-only pattern.
+    // account next to "test@gmail.com". Also catches older accounts that
+    // were stored before emails were lower-cased.
     const existingUser = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: "insensitive" } },
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true },
     });
 
     if (existingUser) {
-      return NextResponse.json(
-        { message: "An account with this email already exists." },
-        { status: 409 }
-      );
+      return jsonError("An account with this email already exists.", 409);
     }
 
     const passwordHash = await hashPassword(password);
@@ -72,18 +33,18 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.create({
       data: {
         name: fullName,
-        email: normalizedEmail,
-        phone: phone || null,
+        email,
+        phone: phone ?? null,
         passwordHash,
         role: "ENTREPRENEUR",
 
         entrepreneurProfile: {
           create: {
-            whatsappNumber: whatsappNumber || phone || "",
+            whatsappNumber: whatsappNumber ?? phone ?? "",
 
             business: {
               create: {
-                businessName: businessName || `${fullName}'s Business`,
+                businessName: businessName ?? `${fullName}'s Business`,
               },
             },
           },
@@ -91,11 +52,7 @@ export async function POST(request: NextRequest) {
       },
 
       include: {
-        entrepreneurProfile: {
-          include: {
-            business: true,
-          },
-        },
+        entrepreneurProfile: true,
       },
     });
 
@@ -103,6 +60,7 @@ export async function POST(request: NextRequest) {
     // what populates the "Registrations" tab on Admin Notifications.
     const admins = await prisma.user.findMany({
       where: { role: "ADMIN" },
+      select: { id: true },
     });
 
     if (admins.length > 0) {
@@ -135,6 +93,12 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
+    // Two identical registrations at the same moment can both pass the
+    // check above; the database's unique email constraint stops the second.
+    if (isUniqueViolation(error)) {
+      return jsonError("An account with this email already exists.", 409);
+    }
+
     console.error("Registration error:", error);
 
     return NextResponse.json(

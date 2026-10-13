@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionToken } from "@/lib/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
+import { parseJsonBody } from "@/lib/api";
+import { loginSchema } from "@/lib/schemas";
 
 // Handles entrepreneur login.
 // On success, sets an httpOnly cookie containing a signed session token.
@@ -13,24 +15,15 @@ import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limi
 // 10 minutes, that email is locked for 5 minutes (same limiter as admin login).
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body as { email?: string; password?: string };
+    const parsed = await parseJsonBody(request, loginSchema);
+    if (parsed.error) return parsed.error;
 
-    if (
-      !email ||
-      !password ||
-      typeof email !== "string" ||
-      typeof password !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Email and password are required." },
-        { status: 400 }
-      );
-    }
+    const { password } = parsed.data;
+    const email = parsed.data.email.toLowerCase();
 
     // The prefix keeps this counter separate from the admin login's, and the
     // lower-casing means "A@x.com" and "a@x.com" share one counter.
-    const rateLimitKey = `entrepreneur-login:${email.trim().toLowerCase()}`;
+    const rateLimitKey = `entrepreneur-login:${email}`;
 
     // Checked BEFORE looking the user up, so a locked email gets the same
     // answer whether or not an account exists for it.
@@ -47,8 +40,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Case-insensitive, matching registration: an account registered as
+    // "Test@Gmail.com" can sign in as "test@gmail.com".
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
       include: { entrepreneurProfile: { include: { business: true } } },
     });
 
