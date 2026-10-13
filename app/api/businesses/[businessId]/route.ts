@@ -14,7 +14,9 @@ export async function GET(
     const business = await prisma.business.findUnique({
       where: { id: businessId },
       include: {
-        entrepreneurProfile: { include: { user: true } },
+        // Only the display name: the full User row also holds the email,
+        // phone and password hash, which this public route must not load.
+        entrepreneurProfile: { include: { user: { select: { name: true } } } },
         products: {
           where: { status: "APPROVED" },
           include: { images: true, reviews: true, category: true },
@@ -22,7 +24,9 @@ export async function GET(
       },
     });
 
-    if (!business) {
+    // A storefront is public only once the admin has approved the
+    // entrepreneur. Pending or rejected shops look exactly like missing ones.
+    if (!business || business.entrepreneurProfile.status !== "APPROVED") {
       return NextResponse.json({ message: "Business not found." }, { status: 404 });
     }
 
