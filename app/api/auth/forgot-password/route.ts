@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { parseJsonBody } from "@/lib/api";
+import { forgotPasswordSchema } from "@/lib/schemas";
+import { RESET_TOKEN_TTL_MS, generateResetToken, hashResetToken } from "@/lib/reset-token";
 
 // Generates a password reset token valid for 1 hour, and emails the link to
 // the user via Gmail (see lib/email.ts).
@@ -13,40 +15,38 @@ import { sendPasswordResetEmail } from "@/lib/email";
 // the response is the same generic message as for an unknown email -
 // otherwise anyone could type another person's email (including the admin's)
 // and get a working reset link back.
+//
+// The reply is also the same whether or not the email is registered, so
+// this endpoint cannot be used to find out who has an account.
+const GENERIC_REPLY = {
+  message: "If that email is registered, a reset link has been sent to it.",
+  sentViaEmail: true,
+  resetLink: null,
+};
+
 export async function POST(request: NextRequest) {
   try {
-    const { email } = (await request.json()) as {
-      email?: string;
-    };
+    const parsed = await parseJsonBody(request, forgotPasswordSchema);
+    if (parsed.error) return parsed.error;
 
-    if (!email || typeof email !== "string") {
-      return NextResponse.json(
-        { message: "Email is required." },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: parsed.data.email, mode: "insensitive" } },
+      select: { id: true, email: true },
     });
 
     if (!user) {
-      return NextResponse.json({
-        message: "If that email is registered, a reset link has been sent to it.",
-        sentViaEmail: true,
-        resetLink: null,
-      });
+      return NextResponse.json(GENERIC_REPLY);
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = generateResetToken();
 
-    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
-
+    // Only the hash is stored (see lib/reset-token.ts). Requesting a new
+    // link replaces the previous token, so older links stop working.
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken: token,
-        resetTokenExpiry: oneHourFromNow,
+        resetToken: hashResetToken(token),
+        resetTokenExpiry: new Date(Date.now() + RESET_TOKEN_TTL_MS),
       },
     });
 
@@ -57,11 +57,7 @@ export async function POST(request: NextRequest) {
     try {
       await sendPasswordResetEmail(user.email, resetLink);
 
-      return NextResponse.json({
-        message: "A password reset link has been sent to your email.",
-        sentViaEmail: true,
-        resetLink: null,
-      });
+      return NextResponse.json(GENERIC_REPLY);
     } catch (emailError) {
       console.warn("Email sending failed:", emailError);
 
@@ -77,11 +73,7 @@ export async function POST(request: NextRequest) {
 
       // Anywhere else: say nothing that reveals the link, or whether the
       // email is registered.
-      return NextResponse.json({
-        message: "If that email is registered, a reset link has been sent to it.",
-        sentViaEmail: true,
-        resetLink: null,
-      });
+      return NextResponse.json(GENERIC_REPLY);
     }
   } catch (error) {
     console.error("Forgot password error:", error);

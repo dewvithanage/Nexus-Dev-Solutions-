@@ -1,54 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
-import { validatePassword } from "@/lib/validation";
+import { jsonError, parseJsonBody } from "@/lib/api";
+import { resetPasswordSchema } from "@/lib/schemas";
+import { hashResetToken } from "@/lib/reset-token";
+
+const INVALID_LINK = "This reset link is invalid or has expired. Please request a new one.";
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, newPassword } = (await request.json()) as {
-      token?: string;
-      newPassword?: string;
-    };
-
-    if (
-      !token ||
-      !newPassword ||
-      typeof token !== "string" ||
-      typeof newPassword !== "string"
-    ) {
-      return NextResponse.json(
-        { message: "Reset token and new password are required." },
-        { status: 400 }
-      );
-    }
-
     // Same password rules as registration (8-72 characters, at least one
     // letter and one number). Without this, a reset link was a way around
     // them: any 6-character password was accepted here.
-    const passwordError = validatePassword(newPassword);
-    if (passwordError) {
-      return NextResponse.json({ message: passwordError }, { status: 400 });
-    }
+    const parsed = await parseJsonBody(request, resetPasswordSchema);
+    if (parsed.error) return parsed.error;
 
-    const user = await prisma.user.findUnique({ where: { resetToken: token } });
+    const { token, newPassword } = parsed.data;
+
+    // The database only holds the hash of the token (lib/reset-token.ts).
+    const tokenHash = hashResetToken(token);
+    const user = await prisma.user.findUnique({
+      where: { resetToken: tokenHash },
+      select: { id: true, resetTokenExpiry: true },
+    });
 
     if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      return NextResponse.json(
-        { message: "This reset link is invalid or has expired. Please request a new one." },
-        { status: 400 }
-      );
+      return jsonError(INVALID_LINK, 400);
     }
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.user.update({
-      where: { id: user.id },
+    // The token is cleared in the same update, so a link works only once.
+    // Matching on the token as well as the id means two requests racing
+    // with the same link cannot both succeed.
+    const { count } = await prisma.user.updateMany({
+      where: { id: user.id, resetToken: tokenHash },
       data: {
         passwordHash,
         resetToken: null,
         resetTokenExpiry: null,
       },
     });
+
+    if (count === 0) {
+      return jsonError(INVALID_LINK, 400);
+    }
 
     return NextResponse.json({ message: "Password reset successfully. You can now log in." });
   } catch (error) {
