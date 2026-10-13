@@ -19,8 +19,8 @@ export default function DashboardHeader({
   searchPlaceholder = "Search...",
 }: DashboardHeaderProps) {
   return (
-    <header className="flex h-[46px] shrink-0 items-center justify-between gap-4 border-b border-[#E2E8F0] bg-white px-5">
-      <h1 className="text-[16px] font-bold text-[#172033]">{title}</h1>
+    <header className="flex min-h-[46px] shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E2E8F0] bg-white px-4 py-2 sm:px-5">
+      <h1 className="text-[15px] font-bold text-[#172033] sm:text-[16px]">{title}</h1>
 
       {(onSearch || notificationsHref) && (
         <div className="flex items-center gap-3">
@@ -34,7 +34,7 @@ export default function DashboardHeader({
                 type="search"
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder={searchPlaceholder}
-                className="h-8 w-56 rounded-md border border-[#E2E8F0] bg-white pl-8 pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-600"
+                className="h-8 w-44 rounded-md sm:w-56 border border-[#E2E8F0] bg-white pl-8 pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-600"
               />
             </div>
           )}

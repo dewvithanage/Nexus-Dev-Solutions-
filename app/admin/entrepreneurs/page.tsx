@@ -90,7 +90,7 @@ export default function EntrepreneurManagementPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -101,7 +101,7 @@ export default function EntrepreneurManagementPage() {
           searchPlaceholder="Search database..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="mb-5 flex gap-1 border-b border-slate-200">
             <button
               onClick={() => setActiveTab("ACTIVE")}
@@ -134,7 +134,7 @@ export default function EntrepreneurManagementPage() {
             </Link>
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading entrepreneurs...</p>
             ) : entrepreneurs.length === 0 ? (
@@ -142,7 +142,7 @@ export default function EntrepreneurManagementPage() {
                 {activeTab === "REJECTED" ? "No rejected entrepreneurs." : "No entrepreneurs match your filters."}
               </p>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
                     <th className="px-5 py-3">Entrepreneur Name</th>

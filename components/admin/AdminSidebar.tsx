@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import ResponsiveSidebar from "@/components/dashboard/ResponsiveSidebar";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -45,7 +46,15 @@ export default function AdminSidebar() {
   }
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[230px] shrink-0 flex-col bg-[#0D1B33] px-4 py-5 text-white">
+    <ResponsiveSidebar
+      brand={
+        <Link href="/" className="flex items-center gap-2.5">
+          <img src="/images/startup-spark-logo.png" alt="" className="h-8 w-8 rounded object-cover" />
+          <span className="text-[15px] font-bold">StartupSpark</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Admin</span>
+        </Link>
+      }
+    >
       <Link href="/" className="mb-8 flex items-center gap-3 rounded-md px-2 py-1 transition hover:bg-[#162A49]">
         <img
           src="/images/startup-spark-logo.png"
@@ -104,6 +113,6 @@ export default function AdminSidebar() {
           <span>Logout</span>
         </button>
       </div>
-    </aside>
+    </ResponsiveSidebar>
   );
 }

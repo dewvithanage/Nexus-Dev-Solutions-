@@ -96,7 +96,7 @@ export default function CategoryManagementPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -107,7 +107,7 @@ export default function CategoryManagementPage() {
           searchPlaceholder="Search categories..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleAddCategory} className="mb-6 flex items-end gap-3 rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex-1">
               <label className="mb-1 block text-xs font-semibold text-slate-700">New Category Name</label>

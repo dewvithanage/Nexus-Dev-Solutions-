@@ -87,13 +87,13 @@ export default function ProductApprovalPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title="Product Submission Approvals" notificationsHref="/admin/notifications" />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="mb-5 flex gap-2">
             {tabs.map((tab) => (
               <button
@@ -117,13 +117,13 @@ export default function ProductApprovalPage() {
             <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">{error}</p>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading submissions...</p>
             ) : products.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No products in this category.</p>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
                     <th className="px-5 py-3">Preview</th>

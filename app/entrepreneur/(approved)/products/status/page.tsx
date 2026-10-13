@@ -47,13 +47,13 @@ export default function ProductSubmissionStatusPage() {
   const filtered = activeTab === "ALL" ? products : products.filter((p) => p.status === activeTab);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Product Submission Status" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
           <div className="mb-5 flex gap-2">
             {tabs.map((tab) => (
               <button
@@ -70,7 +70,7 @@ export default function ProductSubmissionStatusPage() {
             ))}
           </div>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading...</p>
             ) : error ? (
@@ -78,7 +78,7 @@ export default function ProductSubmissionStatusPage() {
             ) : filtered.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No products in this category.</p>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
                     <th className="px-5 py-3">Product Name</th>

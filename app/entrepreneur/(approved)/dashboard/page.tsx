@@ -63,16 +63,16 @@ export default async function EntrepreneurDashboardPage() {
     salesLastWeek > 0 ? Math.round(((salesThisWeek - salesLastWeek) / salesLastWeek) * 100) : null;
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <Sidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader />
 
-        <main className="p-8">
-          <section className="flex min-h-[130px] items-center justify-between gap-6 rounded-xl bg-[#2d67e8] px-8 text-white">
+        <main className="p-4 sm:p-6 lg:p-8">
+          <section className="flex min-h-[130px] flex-col items-start justify-between gap-4 rounded-xl bg-[#2d67e8] px-5 py-6 text-white sm:flex-row sm:items-center sm:px-8">
             <div>
-              <h2 className="text-[22px] font-bold">Welcome back, {user.name}! ⚡</h2>
+              <h2 className="text-[20px] font-bold sm:text-[22px]">Welcome back, {user.name}! ⚡</h2>
               <p className="mt-2 max-w-[650px] text-xs leading-5 text-blue-100">
                 {salesThisWeek > 0
                   ? `You completed ${salesThisWeek} verified sale${salesThisWeek === 1 ? "" : "s"} this week. Keep up the amazing student hustle!`
@@ -90,7 +90,7 @@ export default async function EntrepreneurDashboardPage() {
             </Link>
           </section>
 
-          <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
             <div className="rounded-xl border border-slate-200 bg-white p-5">
               <div className="flex justify-between">
                 <p className="text-xs font-medium text-slate-500">Total Products</p>

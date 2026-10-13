@@ -47,13 +47,13 @@ export default function MyProductsPage() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="My Products" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h1 className="text-xl font-bold text-[#172033]">My Products</h1>
@@ -94,8 +94,8 @@ export default function MyProductsPage() {
               </Link>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#D8E0EA] bg-white shadow-sm">
-              <table className="w-full text-left">
+            <div className="overflow-x-auto rounded-lg border border-[#D8E0EA] bg-white shadow-sm">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#F4F7FB]">
                   <tr className="text-[11px] font-semibold text-[#46566C]">
                     <th className="px-5 py-4">Product</th>

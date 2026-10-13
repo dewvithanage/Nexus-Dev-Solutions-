@@ -97,15 +97,15 @@ export default function NotificationsPage() {
       : notifications.filter((n) => n.type === type && !n.isRead).length;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Notification Center" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
-          <div className="mb-5 flex items-center justify-between">
-            <div className="flex gap-2">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
               {tabs.map((tab) => {
                 const count = countByType(tab.key);
                 return (

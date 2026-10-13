@@ -63,8 +63,8 @@ export default function AdminDashboardBody({
         searchPlaceholder="Search activity..."
       />
 
-      <main className="p-8">
-        <section className="flex min-h-[110px] items-center rounded-xl bg-[#2d67e8] px-8 text-white">
+      <main className="p-4 sm:p-6 lg:p-8">
+        <section className="flex min-h-[110px] items-center rounded-xl bg-[#2d67e8] px-5 py-5 text-white sm:px-8">
           <div>
             <h2 className="text-[20px] font-bold">Welcome back, {adminName}!</h2>
             <p className="mt-2 max-w-[650px] text-xs leading-5 text-blue-100">
@@ -75,7 +75,7 @@ export default function AdminDashboardBody({
           </div>
         </section>
 
-        <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-5">
             <div className="flex justify-between">
               <p className="text-xs font-medium text-slate-500">Total Entrepreneurs</p>
@@ -124,13 +124,13 @@ export default function AdminDashboardBody({
           <div>
             <h2 className="mb-4 text-[16px] font-bold text-[#101828]">Recent Activity</h2>
 
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
               {activity.length === 0 ? (
                 <p className="p-6 text-sm text-slate-500">No activity yet.</p>
               ) : filteredActivity.length === 0 ? (
                 <p className="p-6 text-sm text-slate-500">No activity matches your search.</p>
               ) : (
-                <table className="w-full text-left">
+                <table className="w-full min-w-[640px] text-left">
                   <thead className="bg-[#f8fafc]">
                     <tr className="text-[10px] text-slate-500">
                       <th className="px-5 py-3 font-medium">Event</th>

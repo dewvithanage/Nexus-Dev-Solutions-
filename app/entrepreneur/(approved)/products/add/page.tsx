@@ -189,13 +189,13 @@ export default function AddProductPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Add New Product" />
 
-        <main className="min-h-0 flex-1 overflow-hidden px-5 py-4">
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 lg:overflow-hidden">
           <form onSubmit={handleSubmit}>
             <div className="mb-4 flex min-h-[36px] items-center gap-2 rounded-md border border-[#F2B84B] bg-[#FFF8E7] px-3">
               <Info size={14} className="shrink-0 text-[#F2A500]" />
@@ -206,7 +206,7 @@ export default function AddProductPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(260px,0.8fr)] gap-5">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.7fr)_minmax(260px,0.8fr)]">
               {/* LEFT SIDE */}
               <div className="space-y-4">
                 <section className="rounded-lg border border-[#D8E0EA] bg-white p-5 shadow-sm">
