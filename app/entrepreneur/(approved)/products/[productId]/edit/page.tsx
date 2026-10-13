@@ -200,7 +200,7 @@ export default function EditProductPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-[#F5F7FA]">
+      <div className="flex h-dvh flex-col lg:flex-row bg-[#F5F7FA]">
         <Sidebar />
         <div className="flex-1 p-8 text-sm text-slate-500">Loading...</div>
       </div>
@@ -208,13 +208,13 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Edit Product Catalog" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-blue-600">

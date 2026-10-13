@@ -111,7 +111,7 @@ export default function AdminGalleryManagementPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -122,7 +122,7 @@ export default function AdminGalleryManagementPage() {
           searchPlaceholder="Search by caption..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <form onSubmit={handleUpload} className="mb-6 rounded-xl border border-slate-200 bg-white p-5">
             <h2 className="mb-3 text-sm font-bold text-slate-900">Upload New Image</h2>
             <div className="flex flex-wrap items-end gap-4">
@@ -135,7 +135,7 @@ export default function AdminGalleryManagementPage() {
                 <input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} className="hidden" />
               </label>
 
-              <div className="flex-1">
+              <div className="min-w-[180px] flex-1">
                 <label className="mb-1 block text-xs font-semibold text-slate-700">Caption</label>
                 <input
                   value={caption}
@@ -156,7 +156,7 @@ export default function AdminGalleryManagementPage() {
             {successMessage && <p className="mt-2 text-xs text-emerald-600">{successMessage}</p>}
           </form>
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading gallery...</p>
             ) : items.length === 0 ? (
@@ -164,7 +164,7 @@ export default function AdminGalleryManagementPage() {
             ) : filteredItems.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No images match your search on this page.</p>
             ) : (
-              <table className="w-full text-left">
+              <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
                   <tr className="text-[10px] font-semibold text-slate-500">
                     <th className="px-5 py-3">Preview</th>

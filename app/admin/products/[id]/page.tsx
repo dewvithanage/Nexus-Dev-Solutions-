@@ -143,13 +143,13 @@ export default function AdminProductDetailsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader title="Product Submission Audit" notificationsHref="/admin/notifications" />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           {loading ? (
             <p className="text-sm text-slate-500">Loading...</p>
           ) : !product ? (

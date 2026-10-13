@@ -83,7 +83,7 @@ export default function AdminNotificationsPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
@@ -94,7 +94,7 @@ export default function AdminNotificationsPage() {
           searchPlaceholder="Search notifications..."
         />
 
-        <main className="p-8">
+        <main className="p-4 sm:p-6 lg:p-8">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
             <div>
               <div className="mb-4 flex items-center justify-between">

@@ -66,13 +66,13 @@ export default function UploadSalesConfirmationPage() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F5F7FA]">
+    <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Sales Fulfillment Desk" />
 
-        <main className="flex-1 overflow-auto px-6 py-5">
+        <main className="flex-1 overflow-auto px-4 py-5 sm:px-6">
           <div className="mb-4 rounded-xl border border-slate-200 bg-white p-5">
             <h1 className="text-base font-bold text-slate-900">Fulfillment Confirmation</h1>
             <p className="text-xs text-slate-500">

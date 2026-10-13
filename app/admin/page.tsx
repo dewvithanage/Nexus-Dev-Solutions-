@@ -79,7 +79,7 @@ export default async function AdminDashboardPage() {
     .map(({ date, ...rest }) => rest);
 
   return (
-    <div className="flex min-h-screen bg-[#f6f8fb]">
+    <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
