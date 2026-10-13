@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, requireAdmin } from "@/lib/api-auth";
+import { pageQuery, parseSearchParams } from "@/lib/request-validation";
 
-const ITEMS_PER_PAGE = 10;
+const listQuerySchema = z.object({
+  period: z.enum(["week", "month", "all"]).default("month"),
+  ...pageQuery(),
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
-    const params = request.nextUrl.searchParams;
-    const period = params.get("period") || "month"; // "week" | "month" | "all"
-    const page = Math.max(1, Number(params.get("page")) || 1);
-    const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
+    const query = parseSearchParams(request, listQuerySchema);
+    if (query.error) return query.error;
+    const { period, page, pageSize } = query.data;
 
     const now = new Date();
     const since =
@@ -24,28 +26,41 @@ export async function GET(request: NextRequest) {
         ? new Date(now.getFullYear(), now.getMonth(), 1)
         : new Date(0);
 
-    const businesses = await prisma.business.findMany({
-      include: {
-        entrepreneurProfile: { include: { user: true } },
-        orders: { where: { status: "VERIFIED", createdAt: { gte: since } } },
-      },
+    // Revenue per business is summed by the database (verified sales only),
+    // instead of loading every business with all of its orders.
+    const totals = await prisma.order.groupBy({
+      by: ["businessId"],
+      where: { status: "VERIFIED", createdAt: { gte: since } },
+      _sum: { totalAmount: true },
+      _count: { _all: true },
     });
 
-    const allRankings = businesses
-      .map((business) => ({
-        businessId: business.id,
-        entrepreneurName: business.entrepreneurProfile.user.name,
-        businessName: business.businessName,
-        revenue: business.orders.reduce((sum, o) => sum + Number(o.totalAmount), 0),
-        orderCount: business.orders.length,
-      }))
-      .filter((entry) => entry.orderCount > 0)
+    const businesses = await prisma.business.findMany({
+      where: { id: { in: totals.map((row) => row.businessId) } },
+      select: {
+        id: true,
+        businessName: true,
+        entrepreneurProfile: { select: { user: { select: { name: true } } } },
+      },
+    });
+    const businessById = new Map(businesses.map((business) => [business.id, business]));
+
+    const allRankings = totals
+      .flatMap((row) => {
+        const business = businessById.get(row.businessId);
+        if (!business) return [];
+        return [{
+          businessId: row.businessId,
+          entrepreneurName: business.entrepreneurProfile.user.name,
+          businessName: business.businessName,
+          revenue: Number(row._sum.totalAmount ?? 0),
+          orderCount: row._count._all,
+        }];
+      })
       .sort((a, b) => b.revenue - a.revenue);
 
-    // Podium (top 3) is always returned in full, regardless of page —
-    // it's a fixed showcase, not something that should change as you
-    // page through. Only the table below it (rank 4 onward) is
-    // actually paginated.
+    // The podium (top 3) is a fixed showcase, always returned in full;
+    // only the table below it (rank 4 onward) is paginated.
     const podium = allRankings.slice(0, 3);
     const rest = allRankings.slice(3);
 
@@ -59,7 +74,6 @@ export async function GET(request: NextRequest) {
       pagination: { currentPage: page, totalPages, totalCount, pageSize },
     });
   } catch (error) {
-    console.error("Get rankings error:", error);
-    return NextResponse.json({ message: "Unable to load rankings." }, { status: 500 });
+    return handleRouteError(error, "Get rankings error", { fallback: "Unable to load rankings." });
   }
 }

@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { handleRouteError, requireAdmin } from "@/lib/api-auth";
+import { pageQuery, parseJsonBody, parseSearchParams, requiredText } from "@/lib/request-validation";
+import { slugify } from "@/lib/slug";
 
-const ITEMS_PER_PAGE = 10;
+const listQuerySchema = z.object({ ...pageQuery() });
+const createSchema = z.object({ name: requiredText(60, "Category name") }).strict();
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
-    const params = request.nextUrl.searchParams;
-    const page = Math.max(1, Number(params.get("page")) || 1);
-    const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
+    const query = parseSearchParams(request, listQuerySchema);
+    if (query.error) return query.error;
+    const { page, pageSize } = query.data;
 
     const totalCount = await prisma.category.count();
     const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
@@ -30,37 +32,31 @@ export async function GET(request: NextRequest) {
       pagination: { currentPage: page, totalPages, totalCount, pageSize },
     });
   } catch (error) {
-    console.error("Get categories error:", error);
-    return NextResponse.json({ message: "Unable to load categories." }, { status: 500 });
+    return handleRouteError(error, "Get categories error", { fallback: "Unable to load categories." });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
+
+    const parsed = await parseJsonBody(request, createSchema);
+    if (parsed.error) return parsed.error;
+    const { name } = parsed.data;
+
+    const slug = slugify(name);
+    if (!slug) {
+      return NextResponse.json({ message: "Category name must contain letters or numbers." }, { status: 400 });
     }
 
-    const body = await request.json();
-    const { name } = body as { name?: string };
+    const category = await prisma.category.create({ data: { name, slug } });
 
-    if (!name || !name.trim()) {
-      return NextResponse.json({ message: "Category name is required." }, { status: 400 });
-    }
-
-    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-
-    const category = await prisma.category.create({
-      data: { name: name.trim(), slug },
+    return NextResponse.json({ message: "Category created.", category }, { status: 201 });
+  } catch (error) {
+    return handleRouteError(error, "Create category error", {
+      conflict: "A category with this name already exists.",
+      fallback: "Unable to create category.",
     });
-
-    return NextResponse.json({ message: "Category created.", category });
-  } catch (error: any) {
-    if (error.code === "P2002") {
-      return NextResponse.json({ message: "A category with this name already exists." }, { status: 409 });
-    }
-    console.error("Create category error:", error);
-    return NextResponse.json({ message: "Unable to create category." }, { status: 500 });
   }
 }

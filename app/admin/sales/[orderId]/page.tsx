@@ -36,6 +36,7 @@ export default function SalesConfirmationDetailsPage() {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     loadOrder();
@@ -54,21 +55,33 @@ export default function SalesConfirmationDetailsPage() {
     }
   }
 
+  async function showErrorIfFailed(response: Response, fallback: string) {
+    if (response.ok) return;
+    const data = await response.json().catch(() => ({}));
+    setActionError(data.message || fallback);
+  }
+
   async function handleVerify() {
+    setActionError("");
     setActionLoading(true);
-    await fetch(`/api/admin/sales/${params.orderId}/verify`, { method: "PATCH" });
+    const response = await fetch(`/api/admin/sales/${params.orderId}/verify`, { method: "PATCH" });
+    await showErrorIfFailed(response, "Unable to verify this sale.");
     await loadOrder();
     setActionLoading(false);
   }
 
   async function handleFlag() {
-    const notes = window.prompt("Describe the irregularity (optional):") || undefined;
+    const input = window.prompt("Describe the irregularity (optional):");
+    // Cancel returns null: stop, instead of flagging anyway.
+    if (input === null) return;
+    setActionError("");
     setActionLoading(true);
-    await fetch(`/api/admin/sales/${params.orderId}/flag`, {
+    const response = await fetch(`/api/admin/sales/${params.orderId}/flag`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ notes: input.trim() || undefined }),
     });
+    await showErrorIfFailed(response, "Unable to flag this sale.");
     await loadOrder();
     setActionLoading(false);
   }
@@ -101,6 +114,9 @@ export default function SalesConfirmationDetailsPage() {
         <DashboardHeader title={`Transaction Audit: TX-${order.id.slice(-4)}`} notificationsHref="/admin/notifications" />
 
         <main className="p-8">
+          {actionError && (
+            <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-600">{actionError}</p>
+          )}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
             <div className="space-y-5">
               <div className="rounded-xl border border-slate-200 bg-white p-6">

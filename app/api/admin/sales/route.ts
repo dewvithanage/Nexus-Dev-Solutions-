@@ -1,30 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { handleRouteError, requireAdmin } from "@/lib/api-auth";
+import { pageQuery, parseSearchParams } from "@/lib/request-validation";
 
-const ITEMS_PER_PAGE = 10;
+const listQuerySchema = z.object({
+  status: z.enum(["PENDING", "VERIFIED", "FLAGGED"]).optional(),
+  ...pageQuery(),
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
-    const params = request.nextUrl.searchParams;
-    const statusFilter = params.get("status"); // "PENDING" | "VERIFIED" | "FLAGGED"
-    const page = Math.max(1, Number(params.get("page")) || 1);
-    const pageSize = Number(params.get("pageSize")) || ITEMS_PER_PAGE;
+    const query = parseSearchParams(request, listQuerySchema);
+    if (query.error) return query.error;
+    const { status, page, pageSize } = query.data;
 
-    // Typed explicitly as Prisma's own filter type. (The previous version used
-    // "as const", which made the status list read-only - fine at runtime, but
-    // TypeScript rejects it, which would fail "npm run build".)
+    // "PENDING" on this page means every order that hasn't been decided yet.
     const where: Prisma.OrderWhereInput =
-      statusFilter === "PENDING"
+      status === "PENDING"
         ? { status: { in: ["PENDING", "AWAITING_FULFILLMENT", "PENDING_VERIFICATION"] } }
-        : statusFilter === "VERIFIED" || statusFilter === "FLAGGED"
-        ? { status: statusFilter }
+        : status
+        ? { status }
         : {};
 
     const totalCount = await prisma.order.count({ where });
@@ -36,8 +36,13 @@ export async function GET(request: NextRequest) {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        business: { include: { entrepreneurProfile: { include: { user: true } } } },
-        items: { include: { product: true } },
+        business: {
+          select: {
+            businessName: true,
+            entrepreneurProfile: { select: { user: { select: { name: true } } } },
+          },
+        },
+        items: { include: { product: { select: { name: true } } } },
       },
     });
 
@@ -57,7 +62,6 @@ export async function GET(request: NextRequest) {
       pagination: { currentPage: page, totalPages, totalCount, pageSize },
     });
   } catch (error) {
-    console.error("Get sales error:", error);
-    return NextResponse.json({ message: "Unable to load orders." }, { status: 500 });
+    return handleRouteError(error, "Get sales error", { fallback: "Unable to load orders." });
   }
 }
