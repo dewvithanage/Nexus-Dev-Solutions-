@@ -60,8 +60,25 @@ export async function createEntrepreneur(status: "PENDING" | "APPROVED" | "REJEC
 // Makes the next Route Handler call run as this user, exactly as if the
 // browser sent a valid session cookie.
 export async function signInAs(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
-  const token = await createSessionToken({ userId: user.id, role: user.role });
-  cookieJar.set(SESSION_COOKIE_NAME, token);
+  cookieJar.set(SESSION_COOKIE_NAME, await sessionTokenFor(user));
+}
+
+// A valid session token for this user, carrying their current sessionVersion.
+export async function sessionTokenFor(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
+  const { sessionVersion } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { sessionVersion: true },
+  });
+  return createSessionToken({ userId: user.id, role: user.role, sessionVersion });
+}
+
+// The secret columns are hidden from normal queries (lib/prisma.ts); tests
+// that need to check them ask for them here.
+export function userWithSecrets(id: string) {
+  return prisma.user.findUniqueOrThrow({
+    where: { id },
+    omit: { passwordHash: false, resetToken: false, resetTokenExpiry: false, sessionVersion: false },
+  });
 }
 
 export function signOut() {

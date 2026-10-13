@@ -3,7 +3,7 @@ import { POST as forgotPassword } from "@/app/api/auth/forgot-password/route";
 import { POST as resetPassword } from "@/app/api/auth/reset-password/route";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth";
-import { createEntrepreneur, jsonRequest, resetDatabase, TEST_PASSWORD } from "./helpers";
+import { createEntrepreneur, jsonRequest, resetDatabase, TEST_PASSWORD, userWithSecrets } from "./helpers";
 
 // POST /api/auth/forgot-password and POST /api/auth/reset-password
 
@@ -28,7 +28,7 @@ describe("POST /api/auth/forgot-password", () => {
 
     expect(response.status).toBe(200);
     expect(body.resetLink).toBeNull();
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(saved.resetToken).toMatch(/^[a-f0-9]{64}$/);
     expect(saved.resetTokenExpiry!.getTime()).toBeGreaterThan(Date.now());
     expect(sendPasswordResetEmail).toHaveBeenCalledWith(user.email, expect.stringContaining(saved.resetToken!));
@@ -57,7 +57,7 @@ describe("POST /api/auth/forgot-password", () => {
     const response = await forgot({ email: user.email, resetToken: "a".repeat(64) });
 
     expect(response.status).toBe(400);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(saved.resetToken).toBeNull();
   });
 });
@@ -79,7 +79,7 @@ describe("POST /api/auth/reset-password", () => {
     const response = await reset({ token, newPassword: "BrandNew456" });
 
     expect(response.status).toBe(200);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(await verifyPassword("BrandNew456", saved.passwordHash)).toBe(true);
     expect(saved.resetToken).toBeNull();
     expect(saved.resetTokenExpiry).toBeNull();
@@ -100,7 +100,7 @@ describe("POST /api/auth/reset-password", () => {
     const response = await reset({ token, newPassword: "BrandNew456" });
 
     expect(response.status).toBe(400);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(await verifyPassword(TEST_PASSWORD, saved.passwordHash)).toBe(true);
   });
 
@@ -110,7 +110,7 @@ describe("POST /api/auth/reset-password", () => {
     const response = await reset({ token: "cd".repeat(32), newPassword: "BrandNew456" });
 
     expect(response.status).toBe(400);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(await verifyPassword(TEST_PASSWORD, saved.passwordHash)).toBe(true);
   });
 
@@ -120,7 +120,7 @@ describe("POST /api/auth/reset-password", () => {
     const response = await reset({ token, newPassword: "short" });
 
     expect(response.status).toBe(400);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(await verifyPassword(TEST_PASSWORD, saved.passwordHash)).toBe(true);
     expect(saved.resetToken).toBe(token);
   });
@@ -132,7 +132,7 @@ describe("POST /api/auth/reset-password", () => {
     const response = await reset({ token, newPassword: "BrandNew456", userId: other.id });
 
     expect(response.status).toBe(400);
-    const saved = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    const saved = await userWithSecrets(user.id);
     expect(await verifyPassword(TEST_PASSWORD, saved.passwordHash)).toBe(true);
   });
 });

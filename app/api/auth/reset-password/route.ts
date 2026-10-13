@@ -23,7 +23,10 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const { token, newPassword } = parsed.data;
 
-    const user = await prisma.user.findUnique({ where: { resetToken: token } });
+    const user = await prisma.user.findUnique({
+      where: { resetToken: token },
+      omit: { resetTokenExpiry: false },
+    });
 
     if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
       return NextResponse.json(
@@ -40,6 +43,9 @@ export async function POST(request: NextRequest) {
         passwordHash,
         resetToken: null,
         resetTokenExpiry: null,
+        // A new password signs out every existing session, in case the
+        // reset was needed because someone else had access.
+        sessionVersion: { increment: 1 },
       },
     });
 

@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email },
+      // The hash is hidden from every other query (lib/prisma.ts); login is
+      // the one place that needs it.
+      omit: { passwordHash: false, sessionVersion: false },
       include: { entrepreneurProfile: { include: { business: true } } },
     });
 
@@ -83,9 +86,20 @@ export async function POST(request: NextRequest) {
     // A successful login wipes the failed-attempt counter.
     await clearAttempts(rateLimitKey);
 
+    // Checked only after the password, so this doesn't reveal an account's
+    // status to someone who doesn't know its password. Pending accounts may
+    // sign in to see their status; they just can't sell until approved.
+    if (user.entrepreneurProfile?.status === "REJECTED") {
+      return NextResponse.json(
+        { message: "Your application was not approved, so you can't sign in. Contact the Startup Spark team if you think this is a mistake." },
+        { status: 403 }
+      );
+    }
+
     const token = await createSessionToken({
       userId: user.id,
       role: "ENTREPRENEUR",
+      sessionVersion: user.sessionVersion,
     });
 
     const response = NextResponse.json(
