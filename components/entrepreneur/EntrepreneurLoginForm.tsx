@@ -59,7 +59,11 @@ export default function EntrepreneurLoginForm() {
         return;
       }
 
-      router.push("/entrepreneur/dashboard");
+      // Accounts still waiting for admin approval go to their status page;
+      // the seller pages only open once approved.
+      router.push(
+        data.entrepreneur?.status === "APPROVED" ? "/entrepreneur/dashboard" : "/entrepreneur/application-status"
+      );
     } catch (error) {
       console.error("Login request error:", error);
       setError("Something went wrong. Please try again.");

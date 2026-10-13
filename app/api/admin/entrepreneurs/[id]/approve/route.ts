@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
 import { idField } from "@/lib/request-validation";
+import { sendApplicationApprovedEmail } from "@/lib/email";
 
 export async function PATCH(
   request: NextRequest,
@@ -14,7 +15,10 @@ export async function PATCH(
     const { id } = await params;
     if (!idField.safeParse(id).success) return jsonError(404, "Entrepreneur not found.");
 
-    const current = await prisma.entrepreneurProfile.findUnique({ where: { id }, select: { status: true } });
+    const current = await prisma.entrepreneurProfile.findUnique({
+      where: { id },
+      select: { status: true, user: { select: { name: true, email: true } } },
+    });
     if (!current) return jsonError(404, "Entrepreneur not found.");
     // Pending or previously rejected applications can be approved; approving
     // twice would only send a duplicate notification.
@@ -46,7 +50,24 @@ export async function PATCH(
       return updated;
     });
 
-    return NextResponse.json({ message: "Entrepreneur approved.", entrepreneur });
+    // Pending entrepreneurs can't use the dashboard yet, so they're also told
+    // by email. Sent after the approval is saved; if email fails, the
+    // approval still stands and the admin is told the email wasn't sent.
+    let emailSent = true;
+    try {
+      await sendApplicationApprovedEmail(current.user.email, current.user.name);
+    } catch (error) {
+      emailSent = false;
+      console.warn("Approval email not sent:", error);
+    }
+
+    return NextResponse.json({
+      message: emailSent
+        ? "Entrepreneur approved and notified by email."
+        : "Entrepreneur approved. The email couldn't be sent, but they'll see an in-app notification when they sign in.",
+      emailSent,
+      entrepreneur,
+    });
   } catch (error) {
     return handleRouteError(error, "Approve entrepreneur error", {
       notFound: "Entrepreneur not found.",

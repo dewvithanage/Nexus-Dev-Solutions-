@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname) },
   },
+  // Compile JSX the way Next.js does, so tests can render server pages.
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "node",
     globalSetup: ["./tests/global-setup.ts"],

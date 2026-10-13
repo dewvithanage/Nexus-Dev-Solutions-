@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Package, Clock3, CircleCheck, DollarSign, TrendingUp, Hourglass } from "lucide-react";
+import { Package, Clock3, CircleCheck, DollarSign, TrendingUp } from "lucide-react";
 
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
@@ -17,7 +17,8 @@ function formatRupees(amount: number) {
 
 // Server Component: reads the session and the entrepreneur's real figures
 // straight from the database. Every number on this page is calculated from
-// their own products and orders.
+// their own products and orders. Only approved entrepreneurs get here
+// (see ../layout.tsx).
 export default async function EntrepreneurDashboardPage() {
   const user = await getCurrentUser();
   const profile = user?.entrepreneurProfile;
@@ -61,8 +62,6 @@ export default async function EntrepreneurDashboardPage() {
   const salesChange =
     salesLastWeek > 0 ? Math.round(((salesThisWeek - salesLastWeek) / salesLastWeek) * 100) : null;
 
-  const isApproved = profile.status === "APPROVED";
-
   return (
     <div className="flex min-h-screen bg-[#f6f8fb]">
       <Sidebar />
@@ -71,33 +70,11 @@ export default async function EntrepreneurDashboardPage() {
         <DashboardHeader />
 
         <main className="p-8">
-          {!isApproved && (
-            <section className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-6 py-4">
-              <Hourglass size={18} className="mt-0.5 shrink-0 text-amber-600" />
-              <div>
-                <p className="text-sm font-bold text-amber-800">
-                  {profile.status === "PENDING"
-                    ? "Your registration is waiting for admin approval"
-                    : "Your registration was not approved"}
-                </p>
-                <p className="mt-1 text-xs leading-5 text-amber-700">
-                  {profile.status === "PENDING"
-                    ? "You can complete your business profile now. Adding products and selling unlock as soon as an admin approves your account; you'll get a notification."
-                    : profile.rejectionReason
-                    ? `Reason: ${profile.rejectionReason}`
-                    : "Contact the Startup Spark team if you think this is a mistake."}
-                </p>
-              </div>
-            </section>
-          )}
-
           <section className="flex min-h-[130px] items-center justify-between gap-6 rounded-xl bg-[#2d67e8] px-8 text-white">
             <div>
               <h2 className="text-[22px] font-bold">Welcome back, {user.name}! ⚡</h2>
               <p className="mt-2 max-w-[650px] text-xs leading-5 text-blue-100">
-                {!isApproved
-                  ? "Your dashboard will fill up with products and sales once your account is approved."
-                  : salesThisWeek > 0
+                {salesThisWeek > 0
                   ? `You completed ${salesThisWeek} verified sale${salesThisWeek === 1 ? "" : "s"} this week. Keep up the amazing student hustle!`
                   : activeProducts > 0
                   ? `You have ${activeProducts} product${activeProducts === 1 ? "" : "s"} live in the marketplace.`
@@ -105,14 +82,12 @@ export default async function EntrepreneurDashboardPage() {
               </p>
             </div>
 
-            {isApproved && (
-              <Link
-                href="/entrepreneur/products/add"
-                className="shrink-0 rounded-md bg-[#f5a900] px-6 py-3 text-xs font-bold text-slate-950 transition hover:bg-[#e99f00]"
-              >
-                Add Product
-              </Link>
-            )}
+            <Link
+              href="/entrepreneur/products/add"
+              className="shrink-0 rounded-md bg-[#f5a900] px-6 py-3 text-xs font-bold text-slate-950 transition hover:bg-[#e99f00]"
+            >
+              Add Product
+            </Link>
           </section>
 
           <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
