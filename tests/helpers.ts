@@ -109,3 +109,50 @@ export function tinyPngFile(name = "pixel.png") {
   );
   return new File([bytes], name, { type: "image/png" });
 }
+
+export async function createCategory(name = `Category ${++counter}`) {
+  return prisma.category.create({
+    data: { name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") },
+  });
+}
+
+export async function createProduct(
+  businessId: string,
+  { status = "APPROVED", stockQuantity = 10, price = 500 }: {
+    status?: "PENDING" | "APPROVED" | "REJECTED";
+    stockQuantity?: number;
+    price?: number;
+  } = {}
+) {
+  const category = await createCategory();
+  return prisma.product.create({
+    data: {
+      businessId,
+      categoryId: category.id,
+      name: `Product ${++counter}`,
+      description: "A test product.",
+      price,
+      stockQuantity,
+      status,
+    },
+  });
+}
+
+// An order for one unit of the product, in the given state.
+export async function createOrder(
+  businessId: string,
+  productId: string,
+  status: "PENDING" | "PENDING_VERIFICATION" | "VERIFIED" = "PENDING"
+) {
+  return prisma.order.create({
+    data: {
+      businessId,
+      buyerName: "Test Buyer",
+      buyerPhone: "0771234567",
+      deliveryLocation: "Main library",
+      totalAmount: 500,
+      status,
+      items: { create: { productId, quantity: 1, unitPriceAtOrder: 500 } },
+    },
+  });
+}

@@ -47,3 +47,10 @@ jobs:
 
       # Builds the schema from prisma/migrations, then runs the tests.
       - run: npm test
+
+      # The production build must succeed too (type errors fail it). These
+      # values exist only so the build can start; nothing secret is used.
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startup_spark_test
+          JWT_SECRET: ci-build-only-value-not-a-real-secret
