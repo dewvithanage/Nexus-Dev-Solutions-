@@ -12,6 +12,7 @@ import {
   Bell,
   LogOut,
   ExternalLink,
+  Clock3,
 } from "lucide-react";
 
 const menuItems = [
@@ -23,9 +24,17 @@ const menuItems = [
   { name: "Notifications", href: "/entrepreneur/notifications", icon: Bell },
 ];
 
+// Until an admin approves the account, only these pages are open to it
+// (the seller pages redirect to the application status page).
+const pendingMenuItems = [
+  { name: "Application Status", href: "/entrepreneur/application-status", icon: Clock3 },
+  { name: "Business Profile", href: "/entrepreneur/profile", icon: UserRound },
+];
+
 type LoggedInEntrepreneur = {
   fullName: string;
   businessName: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | null;
 };
 
 export default function Sidebar() {
@@ -68,7 +77,7 @@ export default function Sidebar() {
       </Link>
 
       <nav className="flex flex-col gap-2">
-        {menuItems.map((item) => {
+        {(entrepreneur && entrepreneur.status !== "APPROVED" ? pendingMenuItems : menuItems).map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (

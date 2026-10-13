@@ -32,6 +32,7 @@ export default function EntrepreneurRegisterForm() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target;
@@ -76,13 +77,35 @@ export default function EntrepreneurRegisterForm() {
         return;
       }
 
-      router.push("/entrepreneur/login");
+      setSubmitted(true);
     } catch (error) {
       console.error("Registration request error:", error);
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (submitted) {
+    return (
+      <div className="space-y-4 text-center">
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-sm font-bold text-emerald-700">Application submitted</p>
+          <p className="mt-2 text-xs leading-5 text-emerald-700">
+            An admin from the Startup Spark team will review your application. We&apos;ll email{" "}
+            <span className="font-semibold">{formData.email}</span> once it&apos;s approved. Meanwhile, you can sign
+            in to complete your business profile.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push("/entrepreneur/login")}
+          className="w-full rounded-md bg-blue-600 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+        >
+          Go to sign in
+        </button>
+      </div>
+    );
   }
 
   return (

@@ -35,6 +35,7 @@ export default function EntrepreneurDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     loadDetails();
@@ -56,6 +57,7 @@ export default function EntrepreneurDetailsPage() {
   async function handleApprove() {
     setActionLoading(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch(`/api/admin/entrepreneurs/${params.id}/approve`, {
         method: "PATCH",
@@ -65,6 +67,7 @@ export default function EntrepreneurDetailsPage() {
         setError(data.message || "Unable to approve.");
         return;
       }
+      setNotice(data.message || "");
       await loadDetails();
     } finally {
       setActionLoading(false);
@@ -78,6 +81,7 @@ export default function EntrepreneurDetailsPage() {
     const reason = input.trim() || undefined;
     setActionLoading(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch(`/api/admin/entrepreneurs/${params.id}/reject`, {
         method: "PATCH",
@@ -89,6 +93,7 @@ export default function EntrepreneurDetailsPage() {
         setError(data.message || "Unable to reject.");
         return;
       }
+      setNotice(data.message || "");
       await loadDetails();
     } finally {
       setActionLoading(false);
@@ -139,6 +144,11 @@ export default function EntrepreneurDetailsPage() {
               {error && (
                 <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
                   {error}
+                </div>
+              )}
+              {notice && !error && (
+                <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
+                  {notice}
                 </div>
               )}
 

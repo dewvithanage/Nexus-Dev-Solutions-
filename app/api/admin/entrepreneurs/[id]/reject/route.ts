@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
 import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
+import { sendApplicationRejectedEmail } from "@/lib/email";
 
 const rejectSchema = z
   .object({ rejectionReason: optionalText(500, "Rejection reason") })
@@ -23,7 +24,10 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const { rejectionReason } = parsed.data;
 
-    const current = await prisma.entrepreneurProfile.findUnique({ where: { id }, select: { status: true } });
+    const current = await prisma.entrepreneurProfile.findUnique({
+      where: { id },
+      select: { status: true, user: { select: { name: true, email: true } } },
+    });
     if (!current) return jsonError(404, "Entrepreneur not found.");
     if (current.status === "REJECTED") return jsonError(409, "This entrepreneur is already rejected.");
 
@@ -60,7 +64,23 @@ export async function PATCH(
       return updated;
     });
 
-    return NextResponse.json({ message: "Entrepreneur rejected.", entrepreneur });
+    // A rejected account can't sign in to read an in-app notification, so
+    // email is how they find out. Sent after the change is saved.
+    let emailSent = true;
+    try {
+      await sendApplicationRejectedEmail(current.user.email, current.user.name, rejectionReason);
+    } catch (error) {
+      emailSent = false;
+      console.warn("Rejection email not sent:", error);
+    }
+
+    return NextResponse.json({
+      message: emailSent
+        ? "Entrepreneur rejected and notified by email."
+        : "Entrepreneur rejected. The email couldn't be sent.",
+      emailSent,
+      entrepreneur,
+    });
   } catch (error) {
     return handleRouteError(error, "Reject entrepreneur error", {
       notFound: "Entrepreneur not found.",
