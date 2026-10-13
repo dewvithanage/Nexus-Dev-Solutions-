@@ -20,7 +20,6 @@ export async function GET() {
       id: category.id,
       name: category.name,
       slug: category.slug,
-      icon: category.icon,
       productCount: category._count.products,
     }));
 
