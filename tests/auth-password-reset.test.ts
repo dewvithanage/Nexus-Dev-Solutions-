@@ -3,6 +3,7 @@ import { POST as forgotPassword } from "@/app/api/auth/forgot-password/route";
 import { POST as resetPassword } from "@/app/api/auth/reset-password/route";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth";
+import { hashResetToken } from "@/lib/reset-token";
 import { createEntrepreneur, jsonRequest, resetDatabase, TEST_PASSWORD, userWithSecrets } from "./helpers";
 
 // POST /api/auth/forgot-password and POST /api/auth/reset-password
@@ -20,7 +21,13 @@ beforeEach(async () => {
 });
 
 describe("POST /api/auth/forgot-password", () => {
-  it("stores a reset token for a registered email and emails the link only to that address", async () => {
+  // The token as the account owner receives it, taken from the emailed link.
+  function tokenFromEmail() {
+    const link: string = sendPasswordResetEmail.mock.calls.at(-1)![1];
+    return new URL(link).searchParams.get("token")!;
+  }
+
+  it("emails the link only to that address and stores only a hash of the token", async () => {
     const user = await createEntrepreneur();
 
     const response = await forgot({ email: user.email });
@@ -28,10 +35,43 @@ describe("POST /api/auth/forgot-password", () => {
 
     expect(response.status).toBe(200);
     expect(body.resetLink).toBeNull();
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(user.email, expect.any(String));
+    const token = tokenFromEmail();
+    expect(token).toMatch(/^[a-f0-9]{64}$/);
+
     const saved = await userWithSecrets(user.id);
-    expect(saved.resetToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(saved.resetToken).toBe(hashResetToken(token));
+    expect(saved.resetToken).not.toBe(token);
     expect(saved.resetTokenExpiry!.getTime()).toBeGreaterThan(Date.now());
-    expect(sendPasswordResetEmail).toHaveBeenCalledWith(user.email, expect.stringContaining(saved.resetToken!));
+  });
+
+  it("finds the account whatever letter case the email is typed in", async () => {
+    const user = await createEntrepreneur();
+
+    await forgot({ email: user.email.toUpperCase() });
+
+    expect(sendPasswordResetEmail).toHaveBeenCalledWith(user.email, expect.any(String));
+  });
+
+  it("answers a registered and an unknown email with exactly the same reply", async () => {
+    const user = await createEntrepreneur();
+
+    const known = await (await forgot({ email: user.email })).json();
+    const unknown = await (await forgot({ email: "nobody@example.com" })).json();
+
+    expect(known).toEqual(unknown);
+  });
+
+  it("the emailed link resets the password; the stored hash itself does not", async () => {
+    const user = await createEntrepreneur();
+    await forgot({ email: user.email });
+    const saved = await userWithSecrets(user.id);
+
+    // Someone who can read the database only sees the hash.
+    expect((await reset({ token: saved.resetToken, newPassword: "BrandNew456" })).status).toBe(400);
+
+    expect((await reset({ token: tokenFromEmail(), newPassword: "BrandNew456" })).status).toBe(200);
+    expect(await verifyPassword("BrandNew456", (await userWithSecrets(user.id)).passwordHash)).toBe(true);
   });
 
   it("gives the same answer for an unknown email and sends nothing", async () => {
@@ -66,9 +106,10 @@ describe("POST /api/auth/reset-password", () => {
   async function userWithToken(expiresInMs: number) {
     const user = await createEntrepreneur();
     const token = "ab".repeat(32);
+    // Stored the way forgot-password stores it: hashed.
     await prisma.user.update({
       where: { id: user.id },
-      data: { resetToken: token, resetTokenExpiry: new Date(Date.now() + expiresInMs) },
+      data: { resetToken: hashResetToken(token), resetTokenExpiry: new Date(Date.now() + expiresInMs) },
     });
     return { user, token };
   }
@@ -122,7 +163,7 @@ describe("POST /api/auth/reset-password", () => {
     expect(response.status).toBe(400);
     const saved = await userWithSecrets(user.id);
     expect(await verifyPassword(TEST_PASSWORD, saved.passwordHash)).toBe(true);
-    expect(saved.resetToken).toBe(token);
+    expect(saved.resetToken).toBe(hashResetToken(token));
   });
 
   it("rejects extra fields such as userId with 400", async () => {

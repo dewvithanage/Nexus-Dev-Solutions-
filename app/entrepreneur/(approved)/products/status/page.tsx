@@ -28,11 +28,19 @@ export default function ProductSubmissionStatusPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>("ALL");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/products")
-      .then((response) => response.json())
-      .then((data) => setProducts(data.products || []))
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) {
+          setError(data.message || "Unable to load your products.");
+          return;
+        }
+        setProducts(data.products || []);
+      })
+      .catch(() => setError("Unable to load your products. Please refresh the page."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -65,6 +73,8 @@ export default function ProductSubmissionStatusPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading...</p>
+            ) : error ? (
+              <p className="p-8 text-sm text-red-600">{error}</p>
             ) : filtered.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No products in this category.</p>
             ) : (

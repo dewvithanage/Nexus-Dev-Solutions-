@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { parseJsonBody } from "@/lib/request-validation";
+import { RESET_TOKEN_TTL_MS, generateResetToken, hashResetToken } from "@/lib/reset-token";
 
 // The email format isn't checked: an unknown or malformed email gets the
 // same generic answer, so nothing reveals which emails are registered.
@@ -33,8 +33,11 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const { email } = parsed.data;
 
-    const user = await prisma.user.findUnique({
-      where: { email },
+    // Case-insensitive: emails are stored as typed at registration, so
+    // "Nimal@Gmail.com" must also be found as "nimal@gmail.com".
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true, email: true },
     });
 
     if (!user) {
@@ -45,15 +48,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = generateResetToken();
 
-    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
-
+    // Only the SHA-256 hash of the token is stored (lib/reset-token.ts), so
+    // someone who can read the database cannot use it to reset a password.
+    // A new request replaces the old token, so older links stop working.
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        resetToken: token,
-        resetTokenExpiry: oneHourFromNow,
+        resetToken: hashResetToken(token),
+        resetTokenExpiry: new Date(Date.now() + RESET_TOKEN_TTL_MS),
       },
     });
 
@@ -64,8 +68,10 @@ export async function POST(request: NextRequest) {
     try {
       await sendPasswordResetEmail(user.email, resetLink);
 
+      // Word for word the same reply as for an unknown email, so the answer
+      // never reveals whether an account exists.
       return NextResponse.json({
-        message: "A password reset link has been sent to your email.",
+        message: "If that email is registered, a reset link has been sent to it.",
         sentViaEmail: true,
         resetLink: null,
       });
