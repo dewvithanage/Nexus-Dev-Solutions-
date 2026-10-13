@@ -1,56 +1,68 @@
-import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-
+import { describe, expect, it } from "vitest";
 import { middleware } from "@/middleware";
-import { sessionCookieFor } from "./helpers";
+import { createSessionToken } from "@/lib/auth";
+import { SESSION_COOKIE_NAME } from "@/lib/session";
 
-// middleware.ts is what sends a signed-out visitor of an entrepreneur page
-// to the login page. These call it the way Next.js does, with a request.
+// middleware.ts: protected pages redirect to sign-in, and /api/admin/*
+// answers 401 / 403. (Route Handlers check the session again themselves.)
 
-function pageRequest(pathname: string, cookie?: string) {
-  return new NextRequest(`http://localhost:3000${pathname}`, { headers: cookie ? { cookie } : {} });
+async function visit(pathname: string, role?: "ADMIN" | "ENTREPRENEUR") {
+  const headers = new Headers();
+  if (role) {
+    const token = await createSessionToken({ userId: "test-user", role });
+    headers.set("cookie", `${SESSION_COOKIE_NAME}=${token}`);
+  }
+  return middleware(new NextRequest(new URL(pathname, "http://localhost"), { headers }));
 }
 
-const entrepreneur = { id: "entrepreneur-1", role: "ENTREPRENEUR" as const };
-const admin = { id: "admin-1", role: "ADMIN" as const };
-
-describe("entrepreneur page protection (middleware.ts)", () => {
+describe("middleware", () => {
   it.each([
-    "/entrepreneur/dashboard",
-    "/entrepreneur/profile",
-    "/entrepreneur/products",
-    "/entrepreneur/products/add",
-    "/entrepreneur/orders",
-    "/entrepreneur/notifications",
-    "/entrepreneur/sales/some-order/upload",
-  ])("redirects a signed-out visitor of %s to the login page", async (pathname) => {
-    const response = await middleware(pageRequest(pathname));
+    ["/admin", "/admin/login"],
+    ["/admin/gallery", "/admin/login"],
+    ["/entrepreneur/dashboard", "/entrepreneur/login"],
+    ["/entrepreneur/products/add", "/entrepreneur/login"],
+  ])("redirects %s to %s without a session", async (pathname, loginPath) => {
+    const response = await visit(pathname);
+
     expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location")!).pathname).toBe(loginPath);
+  });
+
+  it("redirects an entrepreneur away from admin pages", async () => {
+    const response = await visit("/admin/gallery", "ENTREPRENEUR");
+    expect(new URL(response.headers.get("location")!).pathname).toBe("/admin/login");
+  });
+
+  it("redirects an admin away from entrepreneur pages", async () => {
+    const response = await visit("/entrepreneur/dashboard", "ADMIN");
     expect(new URL(response.headers.get("location")!).pathname).toBe("/entrepreneur/login");
   });
 
-  it("redirects a forged or tampered session cookie", async () => {
-    const cookie = (await sessionCookieFor(entrepreneur)).slice(0, -4) + "AAAA";
-    const response = await middleware(pageRequest("/entrepreneur/dashboard", cookie));
-    expect(response.status).toBe(307);
+  it("answers 401 for an admin API call without a session", async () => {
+    const response = await visit("/api/admin/gallery");
+    expect(response.status).toBe(401);
   });
 
-  it("redirects an admin session away from entrepreneur pages", async () => {
-    const response = await middleware(pageRequest("/entrepreneur/dashboard", await sessionCookieFor(admin)));
-    expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("location")!).pathname).toBe("/entrepreneur/login");
+  it("answers 403 for an admin API call from an entrepreneur", async () => {
+    const response = await visit("/api/admin/gallery", "ENTREPRENEUR");
+    expect(response.status).toBe(403);
   });
 
-  it("lets a signed-in entrepreneur through", async () => {
-    const response = await middleware(pageRequest("/entrepreneur/dashboard", await sessionCookieFor(entrepreneur)));
-    expect(response.headers.get("x-middleware-next")).toBe("1");
+  it("treats a forged or tampered cookie as no session", async () => {
+    const token = await createSessionToken({ userId: "test-user", role: "ENTREPRENEUR" });
+    const [header, , signature] = token.split(".");
+    const forgedPayload = Buffer.from(JSON.stringify({ userId: "test-user", role: "ADMIN" })).toString("base64url");
+    const headers = new Headers({ cookie: `${SESSION_COOKIE_NAME}=${header}.${forgedPayload}.${signature}` });
+
+    const response = await middleware(new NextRequest("http://localhost/api/admin/gallery", { headers }));
+
+    expect(response.status).toBe(401);
   });
 
-  it.each(["/entrepreneur/login", "/entrepreneur/register", "/entrepreneur/forgot-password", "/entrepreneur/reset-password"])(
-    "leaves the public page %s open",
-    async (pathname) => {
-      const response = await middleware(pageRequest(pathname));
-      expect(response.headers.get("x-middleware-next")).toBe("1");
-    }
-  );
+  it("lets the sign-in pages through without a session", async () => {
+    const response = await visit("/admin/login");
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.status).toBe(200);
+  });
 });

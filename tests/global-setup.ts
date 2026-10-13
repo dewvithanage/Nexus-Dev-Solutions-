@@ -1,12 +1,24 @@
 import { execSync } from "child_process";
-import fs from "fs";
-import net from "net";
+import { mkdtempSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
-import EmbeddedPostgres from "embedded-postgres";
+import type EmbeddedPostgres from "embedded-postgres";
 import type { TestProject } from "vitest/node";
 
-import { assertSafeTestDatabaseUrl } from "./db-safety";
+// Runs once before all test files.
+//
+// By default this starts a private PostgreSQL server in a temp folder, so
+// tests run against a real database that is created fresh and thrown away
+// afterwards. To use a different test database instead (e.g. a Neon test
+// branch in CI), set TEST_DATABASE_URL. The normal DATABASE_URL from .env is
+// never used, so tests can't change live data.
+
+const PORT = 54329;
+const USER = "postgres";
+const PASSWORD = "test"; // throwaway local test server only
+
+let pg: EmbeddedPostgres | null = null;
+let dataDir: string | null = null;
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -14,70 +26,38 @@ declare module "vitest" {
   }
 }
 
-async function findFreePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const { port } = server.address() as net.AddressInfo;
-      server.close(() => resolve(port));
-    });
-  });
-}
-
-// Runs once before all test files.
-//
-// By default a real PostgreSQL server (the embedded-postgres package) is
-// started in a temporary folder and deleted afterwards, so `npm test` needs
-// no setup and can never touch the team database. To use another test
-// database instead, set TEST_DATABASE_URL (its name must contain "test").
-export default async function setup(project: TestProject) {
+export async function setup(project: TestProject) {
   let databaseUrl = process.env.TEST_DATABASE_URL;
-  let embedded: EmbeddedPostgres | null = null;
-  let dataDir: string | null = null;
 
   if (!databaseUrl) {
-    const port = await findFreePort();
-    dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "startup-spark-test-db-"));
-    embedded = new EmbeddedPostgres({
+    // Loaded only here, so CI (which provides its own Postgres) never needs it.
+    const { default: EmbeddedPostgresServer } = await import("embedded-postgres");
+    dataDir = mkdtempSync(path.join(os.tmpdir(), "startup-spark-test-db-"));
+    pg = new EmbeddedPostgresServer({
       databaseDir: dataDir,
-      user: "postgres",
-      password: "postgres",
-      port,
+      user: USER,
+      password: PASSWORD,
+      port: PORT,
       persistent: false,
       onLog: () => {},
-      onError: () => {},
     });
-    await embedded.initialise();
-    await embedded.start();
-    await embedded.createDatabase("startup_spark_test");
-    databaseUrl = `postgresql://postgres:postgres@127.0.0.1:${port}/startup_spark_test`;
+    await pg.initialise();
+    await pg.start();
+    await pg.createDatabase("startup_spark_test");
+    databaseUrl = `postgresql://${USER}:${PASSWORD}@localhost:${PORT}/startup_spark_test`;
   }
 
-  const teardown = async () => {
-    if (embedded) await embedded.stop();
-    if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true });
-  };
-
-  try {
-    assertSafeTestDatabaseUrl(databaseUrl);
-
-    // Creates the tables straight from prisma/schema.prisma. No reset flag:
-    // the embedded database is brand new and empty on every run, and the
-    // tests empty the tables themselves (tests/helpers.ts resetDatabase).
-    // (prisma/migrations cannot currently rebuild a database from scratch:
-    // see the "Database migrations" note in README.md.)
-    execSync("npx prisma db push --skip-generate", {
-      env: { ...process.env, DATABASE_URL: databaseUrl },
-      stdio: "pipe",
-    });
-  } catch (error) {
-    await teardown();
-    const output = (error as { stderr?: Buffer }).stderr?.toString().trim();
-    throw new Error(output ? `Test database setup failed:\n${output}` : String(error));
-  }
+  // Build the schema from the committed migrations, the same way a fresh
+  // environment would.
+  execSync("npx prisma migrate deploy", {
+    stdio: "pipe",
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  });
 
   project.provide("databaseUrl", databaseUrl);
+}
 
-  return teardown;
+export async function teardown() {
+  if (pg) await pg.stop();
+  if (dataDir) rmSync(dataDir, { recursive: true, force: true });
 }

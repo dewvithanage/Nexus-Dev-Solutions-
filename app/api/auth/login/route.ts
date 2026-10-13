@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionToken } from "@/lib/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
 import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
-import { parseJsonBody } from "@/lib/api";
-import { loginSchema } from "@/lib/schemas";
+import { parseJsonBody } from "@/lib/request-validation";
+
+// Only email and password are accepted; any other field is a 400. The email
+// format isn't checked here: a malformed email simply won't match an account.
+const loginSchema = z
+  .object({
+    email: z
+      .string({ required_error: "Email and password are required." })
+      .trim()
+      .min(1, "Email and password are required.")
+      .max(254, "Email is too long."),
+    password: z
+      .string({ required_error: "Email and password are required." })
+      .min(1, "Email and password are required.")
+      .max(200, "Password is too long."),
+  })
+  .strict();
 
 // Handles entrepreneur login.
 // On success, sets an httpOnly cookie containing a signed session token.
@@ -17,17 +33,15 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await parseJsonBody(request, loginSchema);
     if (parsed.error) return parsed.error;
-
-    const { password } = parsed.data;
-    const email = parsed.data.email.toLowerCase();
+    const { email, password } = parsed.data;
 
     // The prefix keeps this counter separate from the admin login's, and the
     // lower-casing means "A@x.com" and "a@x.com" share one counter.
-    const rateLimitKey = `entrepreneur-login:${email}`;
+    const rateLimitKey = `entrepreneur-login:${email.toLowerCase()}`;
 
     // Checked BEFORE looking the user up, so a locked email gets the same
     // answer whether or not an account exists for it.
-    const lockout = isLockedOut(rateLimitKey);
+    const lockout = await isLockedOut(rateLimitKey);
     if (lockout.locked) {
       return NextResponse.json(
         {
@@ -40,10 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Case-insensitive, matching registration: an account registered as
-    // "Test@Gmail.com" can sign in as "test@gmail.com".
-    const user = await prisma.user.findFirst({
-      where: { email: { equals: email, mode: "insensitive" } },
+    const user = await prisma.user.findUnique({
+      where: { email },
+      // The hash is hidden from every other query (lib/prisma.ts); login is
+      // the one place that needs it.
+      omit: { passwordHash: false, sessionVersion: false },
       include: { entrepreneurProfile: { include: { business: true } } },
     });
 
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
     // were counted, an attacker could tell which emails are registered by
     // seeing which ones eventually lock.
     if (!user || user.role !== "ENTREPRENEUR") {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -61,7 +76,7 @@ export async function POST(request: NextRequest) {
     const passwordIsCorrect = await verifyPassword(password, user.passwordHash);
 
     if (!passwordIsCorrect) {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -69,11 +84,22 @@ export async function POST(request: NextRequest) {
     }
 
     // A successful login wipes the failed-attempt counter.
-    clearAttempts(rateLimitKey);
+    await clearAttempts(rateLimitKey);
+
+    // Checked only after the password, so this doesn't reveal an account's
+    // status to someone who doesn't know its password. Pending accounts may
+    // sign in to see their status; they just can't sell until approved.
+    if (user.entrepreneurProfile?.status === "REJECTED") {
+      return NextResponse.json(
+        { message: "Your application was not approved, so you can't sign in. Contact the Startup Spark team if you think this is a mistake." },
+        { status: 403 }
+      );
+    }
 
     const token = await createSessionToken({
       userId: user.id,
       role: "ENTREPRENEUR",
+      sessionVersion: user.sessionVersion,
     });
 
     const response = NextResponse.json(

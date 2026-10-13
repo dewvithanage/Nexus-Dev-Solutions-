@@ -1,31 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { handleRouteError, jsonError } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
+import { publicProductWhere } from "@/lib/public-visibility";
 
-// Public product detail lookup.
-// Only APPROVED products are shown publicly.
+// Public product detail. Only publicly visible products are shown, and only
+// the fields the product page needs: never admin notes, review metadata or
+// the seller's account details.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
     const { productId } = await params;
+    if (!idField.safeParse(productId).success) return jsonError(404, "Product not found.");
 
     const product = await prisma.product.findFirst({
-      where: {
-        id: productId,
-        status: "APPROVED",
-      },
-      include: {
-        category: true,
-        images: true,
-        reviews: true,
+      where: { id: productId, ...publicProductWhere },
+      select: {
+        id: true,
+        businessId: true,
+        name: true,
+        description: true,
+        price: true,
+        stockQuantity: true,
+        tags: true,
+        onCampusPickup: true,
+        areaDropOff: true,
+        postingEnabled: true,
+        ratingAverage: true,
+        ratingCount: true,
+        createdAt: true,
+        category: { select: { id: true, name: true, slug: true } },
+        images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, sortOrder: true } },
         business: {
-          include: {
+          select: {
+            id: true,
+            businessName: true,
             entrepreneurProfile: {
-              include: {
-                // Only the seller's display name — NOT the whole User row,
-                // which would also send email, phone and passwordHash to
-                // anyone who opens this public URL.
+              select: {
+                university: true,
+                whatsappNumber: true,
                 user: { select: { name: true } },
               },
             },
@@ -35,36 +50,19 @@ export async function GET(
     });
 
     if (!product) {
-      return NextResponse.json(
-        { message: "Product not found." },
-        { status: 404 }
-      );
+      return jsonError(404, "Product not found.");
     }
 
-    const averageRating =
-      product.reviews.length > 0
-        ? product.reviews.reduce(
-            (sum, review) => sum + review.rating,
-            0
-          ) / product.reviews.length
-        : null;
+    const { ratingAverage, ratingCount, ...rest } = product;
 
     return NextResponse.json({
       product: {
-        ...product,
-        averageRating:
-          averageRating !== null
-            ? Number(averageRating.toFixed(1))
-            : null,
-        reviewCount: product.reviews.length,
+        ...rest,
+        averageRating: ratingCount > 0 ? Number(ratingAverage.toFixed(1)) : null,
+        reviewCount: ratingCount,
       },
     });
   } catch (error) {
-    console.error("Get product error:", error);
-
-    return NextResponse.json(
-      { message: "Unable to load product." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Get product error", { fallback: "Unable to load product." });
   }
 }

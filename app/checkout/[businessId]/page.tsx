@@ -69,7 +69,9 @@ export default function OrderFormPage() {
       }
 
       clearBusinessItems(params.businessId);
-      router.push(`/order-confirmation/${data.orderId}`);
+      // The token proves this browser placed the order; the confirmation
+      // page can't be opened with the order id alone.
+      router.push(`/order-confirmation/${data.orderId}?token=${data.accessToken}`);
     } catch (error) {
       console.error("Place order error:", error);
       setError("Something went wrong. Please try again.");

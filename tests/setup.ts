@@ -1,27 +1,29 @@
-import { inject, vi } from "vitest";
+import { afterAll, inject, vi } from "vitest";
 
-import { assertSafeTestDatabaseUrl } from "./db-safety";
+// Runs in each test worker before the test file is imported.
 
-// Runs in every test file before the file's own imports, so lib/prisma.ts
-// connects to the test database and lib/auth.ts finds a JWT secret.
-const databaseUrl = inject("databaseUrl");
-assertSafeTestDatabaseUrl(databaseUrl);
-process.env.DATABASE_URL = databaseUrl;
-process.env.JWT_SECRET = "test-only-jwt-secret-do-not-use-anywhere-else";
+// Point Prisma at the test database before anything imports lib/prisma.
+process.env.DATABASE_URL = inject("databaseUrl");
+// lib/auth.ts refuses to load without a secret. This one only signs test
+// sessions and is not used anywhere else.
+process.env.JWT_SECRET = "test-only-jwt-secret-not-used-anywhere-else";
 
-// Route Handlers read the session cookie with cookies() from next/headers,
-// which only works inside a real Next.js request. Tests replace it with a
-// cookie jar they control (tests/helpers.ts: signInAs / signOut). Everything
-// after that - verifying the JWT and loading the user from the database -
-// is the real code.
-vi.mock("next/headers", async () => {
-  const { getTestCookie } = await import("./session-cookie");
-  return {
-    cookies: async () => ({
-      get: (name: string) => {
-        const value = getTestCookie(name);
-        return value === undefined ? undefined : { name, value };
-      },
-    }),
-  };
+// Route Handlers read the session cookie through next/headers, which only
+// works inside a real Next.js request. Tests set the cookie with
+// signInAs()/signOut() in tests/helpers.ts instead.
+const cookieJar = new Map<string, string>();
+(globalThis as { __testCookieJar?: Map<string, string> }).__testCookieJar = cookieJar;
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = cookieJar.get(name);
+      return value === undefined ? undefined : { name, value };
+    },
+  }),
+}));
+
+afterAll(async () => {
+  const { prisma } = await import("@/lib/prisma");
+  await prisma.$disconnect();
 });

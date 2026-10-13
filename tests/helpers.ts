@@ -1,187 +1,158 @@
-import fs from "fs";
-import path from "path";
 import { NextRequest } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 import { createSessionToken, hashPassword } from "@/lib/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
-import { clearTestCookies, setTestCookie } from "./session-cookie";
 
-export { prisma };
+// Shared helpers for route tests. Any team member can import these to test
+// their own endpoints.
+
+const cookieJar = (globalThis as { __testCookieJar?: Map<string, string> }).__testCookieJar!;
 
 export const TEST_PASSWORD = "Password123";
-const BASE_URL = "http://localhost:3000";
 
-// ------------------------------------------------------------ sessions
-
-// Puts a real signed session token for this user in the cookie jar, the
-// same token /api/auth/login would set.
-export async function signInAs(user: { id: string; role: "ENTREPRENEUR" | "ADMIN" }) {
-  clearTestCookies();
-  setTestCookie(SESSION_COOKIE_NAME, await createSessionToken({ userId: user.id, role: user.role }));
-}
-
-export function signOut() {
-  clearTestCookies();
-}
-
-export async function sessionCookieFor(user: { id: string; role: "ENTREPRENEUR" | "ADMIN" }) {
-  return `${SESSION_COOKIE_NAME}=${await createSessionToken({ userId: user.id, role: user.role })}`;
-}
-
-// ------------------------------------------------------------ database
-
-// Empties every table between tests. Fixed SQL, no user input.
+// Empties every table (except Prisma's migration history) so each test
+// starts from a known state.
 export async function resetDatabase() {
-  await prisma.$executeRawUnsafe(`
-    TRUNCATE TABLE "Notification", "Review", "SalesConfirmation", "OrderItem", "Order",
-      "ProductImage", "Product", "Category", "Business", "EntrepreneurProfile",
-      "GalleryItem", "ContentBlock", "User"
-    RESTART IDENTITY CASCADE
-  `);
+  const tables = await prisma.$queryRaw<{ tablename: string }[]>`
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
+  `;
+  if (tables.length === 0) return;
+  // Table names come from pg_tables, not from user input.
+  const list = tables.map((t) => `"public"."${t.tablename}"`).join(", ");
+  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} CASCADE`);
+  signOut();
 }
 
 let counter = 0;
-const unique = () => `${Date.now().toString(36)}${(counter++).toString(36)}`;
-
-export async function createEntrepreneur(
-  options: { status?: "PENDING" | "APPROVED" | "REJECTED"; email?: string; businessName?: string } = {}
-) {
-  const id = unique();
-  const user = await prisma.user.create({
-    data: {
-      email: options.email ?? `entrepreneur-${id}@example.com`,
-      name: `Entrepreneur ${id}`,
-      passwordHash: await hashPassword(TEST_PASSWORD),
-      role: "ENTREPRENEUR",
-      entrepreneurProfile: {
-        create: {
-          whatsappNumber: "+94771234567",
-          status: options.status ?? "APPROVED",
-          business: { create: { businessName: options.businessName ?? `Shop ${id}` } },
-        },
-      },
-    },
-    include: { entrepreneurProfile: { include: { business: true } } },
-  });
-
-  return {
-    user,
-    profile: user.entrepreneurProfile!,
-    business: user.entrepreneurProfile!.business!,
-  };
-}
+const uniqueEmail = (prefix: string) => `${prefix}${++counter}-${Date.now()}@example.com`;
 
 export async function createAdmin() {
-  const id = unique();
   return prisma.user.create({
     data: {
-      email: `admin-${id}@example.com`,
-      name: `Admin ${id}`,
+      name: "Test Admin",
+      email: uniqueEmail("admin"),
       passwordHash: await hashPassword(TEST_PASSWORD),
       role: "ADMIN",
     },
   });
 }
 
-export async function createCategory() {
-  const id = unique();
-  return prisma.category.create({ data: { name: `Category ${id}`, slug: `category-${id}` } });
+export async function createEntrepreneur(status: "PENDING" | "APPROVED" | "REJECTED" = "APPROVED") {
+  return prisma.user.create({
+    data: {
+      name: "Test Entrepreneur",
+      email: uniqueEmail("entrepreneur"),
+      passwordHash: await hashPassword(TEST_PASSWORD),
+      role: "ENTREPRENEUR",
+      entrepreneurProfile: {
+        create: {
+          whatsappNumber: "0771234567",
+          status,
+          business: { create: { businessName: "Test Business" } },
+        },
+      },
+    },
+    include: { entrepreneurProfile: { include: { business: true } } },
+  });
+}
+
+// Makes the next Route Handler call run as this user, exactly as if the
+// browser sent a valid session cookie.
+export async function signInAs(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
+  cookieJar.set(SESSION_COOKIE_NAME, await sessionTokenFor(user));
+}
+
+// A valid session token for this user, carrying their current sessionVersion.
+export async function sessionTokenFor(user: { id: string; role: "ADMIN" | "ENTREPRENEUR" }) {
+  const { sessionVersion } = await prisma.user.findUniqueOrThrow({
+    where: { id: user.id },
+    select: { sessionVersion: true },
+  });
+  return createSessionToken({ userId: user.id, role: user.role, sessionVersion });
+}
+
+// The secret columns are hidden from normal queries (lib/prisma.ts); tests
+// that need to check them ask for them here.
+export function userWithSecrets(id: string) {
+  return prisma.user.findUniqueOrThrow({
+    where: { id },
+    omit: { passwordHash: false, resetToken: false, resetTokenExpiry: false, sessionVersion: false },
+  });
+}
+
+export function signOut() {
+  cookieJar.clear();
+}
+
+export function jsonRequest(url: string, method: string, body?: unknown) {
+  return new NextRequest(new URL(url, "http://localhost"), {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export function formRequest(url: string, method: string, form: FormData) {
+  return new NextRequest(new URL(url, "http://localhost"), { method, body: form });
+}
+
+export function routeParams<T extends Record<string, string>>(params: T) {
+  return { params: Promise.resolve(params) };
+}
+
+// Smallest valid PNG (1x1 pixel), for upload tests.
+export function tinyPngFile(name = "pixel.png") {
+  const bytes = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64"
+  );
+  return new File([bytes], name, { type: "image/png" });
+}
+
+export async function createCategory(name = `Category ${++counter}`) {
+  return prisma.category.create({
+    data: { name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-") },
+  });
 }
 
 export async function createProduct(
   businessId: string,
-  categoryId: string,
-  overrides: Partial<{ status: "PENDING" | "APPROVED" | "REJECTED"; price: number; rejectionReason: string }> = {}
+  { status = "APPROVED", stockQuantity = 10, price = 500 }: {
+    status?: "PENDING" | "APPROVED" | "REJECTED";
+    stockQuantity?: number;
+    price?: number;
+  } = {}
 ) {
+  const category = await createCategory();
   return prisma.product.create({
     data: {
       businessId,
-      categoryId,
-      name: `Product ${unique()}`,
-      description: "A test product",
-      price: overrides.price ?? 500,
-      stockQuantity: 10,
-      status: overrides.status ?? "APPROVED",
-      rejectionReason: overrides.rejectionReason,
+      categoryId: category.id,
+      name: `Product ${++counter}`,
+      description: "A test product.",
+      price,
+      stockQuantity,
+      status,
     },
   });
 }
 
+// An order for one unit of the product, in the given state.
 export async function createOrder(
   businessId: string,
   productId: string,
-  options: { status?: "PENDING" | "AWAITING_FULFILLMENT" | "PENDING_VERIFICATION" | "VERIFIED" | "FLAGGED" | "CANCELLED"; quantity?: number; unitPrice?: number } = {}
+  status: "PENDING" | "PENDING_VERIFICATION" | "VERIFIED" = "PENDING"
 ) {
-  const quantity = options.quantity ?? 1;
-  const unitPrice = options.unitPrice ?? 500;
   return prisma.order.create({
     data: {
       businessId,
-      buyerName: "Guest Buyer",
-      buyerPhone: "+94770000000",
-      deliveryLocation: "Library",
-      totalAmount: quantity * unitPrice,
-      status: options.status ?? "PENDING",
-      items: { create: { productId, quantity, unitPriceAtOrder: unitPrice } },
+      buyerName: "Test Buyer",
+      buyerPhone: "0771234567",
+      deliveryLocation: "Main library",
+      totalAmount: 500,
+      status,
+      items: { create: { productId, quantity: 1, unitPriceAtOrder: 500 } },
     },
   });
-}
-
-// ------------------------------------------------------------ requests
-
-export function jsonRequest(pathname: string, method: string, body?: unknown, headers: Record<string, string> = {}) {
-  return new NextRequest(`${BASE_URL}${pathname}`, {
-    method,
-    headers: { "Content-Type": "application/json", ...headers },
-    body: body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body),
-  });
-}
-
-export function formRequest(pathname: string, formData: FormData) {
-  return new NextRequest(`${BASE_URL}${pathname}`, { method: "POST", body: formData });
-}
-
-export function getRequest(pathname: string) {
-  return new NextRequest(`${BASE_URL}${pathname}`);
-}
-
-export function params<T extends Record<string, string>>(values: T) {
-  return { params: Promise.resolve(values) };
-}
-
-// ------------------------------------------------------------ uploads
-
-// Smallest byte sequences lib/upload.ts recognises as real images.
-export function pngFile(name = "photo.png") {
-  const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
-  return new File([bytes], name, { type: "image/png" });
-}
-
-// Text pretending to be a PNG: right name and type, wrong content.
-export function fakePngFile() {
-  return new File(["<html><script>alert(1)</script></html>"], "evil.png", { type: "image/png" });
-}
-
-export function uploadedFileExists(url: string) {
-  return fs.existsSync(path.join(process.cwd(), "public", url));
-}
-
-// Removes every file the tests uploaded into public/uploads.
-export async function removeUploadedTestFiles() {
-  const [images, confirmations, businesses] = await Promise.all([
-    prisma.productImage.findMany({ select: { url: true } }),
-    prisma.salesConfirmation.findMany({ select: { proofImageUrl: true } }),
-    prisma.business.findMany({ where: { logoUrl: { not: null } }, select: { logoUrl: true } }),
-  ]);
-  const urls = [
-    ...images.map((row) => row.url),
-    ...confirmations.map((row) => row.proofImageUrl),
-    ...businesses.map((row) => row.logoUrl!),
-  ];
-  for (const url of urls) {
-    if (url.startsWith("/uploads/")) {
-      fs.rmSync(path.join(process.cwd(), "public", url), { force: true });
-    }
-  }
 }

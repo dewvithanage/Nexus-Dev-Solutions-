@@ -1,0 +1,56 @@
+name: Security tests
+
+# Runs `npm test` on every push and pull request. The tests use a throwaway
+# Postgres container created for this run only. No real database, no real
+# secrets, and nothing from GitHub Secrets is needed.
+
+on:
+  push:
+    branches: [main, Dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway credentials for this CI container only.
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: startup_spark_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startup_spark_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      # Builds the schema from prisma/migrations, then runs the tests.
+      - run: npm test
+
+      # The production build must succeed too (type errors fail it). These
+      # values exist only so the build can start; nothing secret is used.
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/startup_spark_test
+          JWT_SECRET: ci-build-only-value-not-a-real-secret

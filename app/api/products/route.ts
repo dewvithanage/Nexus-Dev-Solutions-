@@ -1,95 +1,71 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonError, parseJsonBody, requireEntrepreneur } from "@/lib/api";
-import { productCreateSchema } from "@/lib/schemas";
+import { handleRouteError, jsonError, requireEntrepreneur } from "@/lib/api-auth";
+import { parseJsonBody } from "@/lib/request-validation";
+import { createProductSchema } from "@/lib/product-schema";
 
-// Add a new product. Uses the logged-in entrepreneur's own business —
-// never trust a businessId sent from the frontend, always look it up
-// from the session, otherwise someone could add products to someone
-// else's shop just by changing a form value. (A "businessId" or "status"
-// field in the body is rejected outright by the strict schema.)
+// Add a new product. Only APPROVED entrepreneurs can sell. The product is
+// always added to the signed-in entrepreneur's own business — never a
+// businessId sent from the browser — and always starts as PENDING review.
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireEntrepreneur();
     if (auth.error) return auth.error;
 
-    const parsed = await parseJsonBody(request, productCreateSchema);
+    const parsed = await parseJsonBody(request, createProductSchema);
     if (parsed.error) return parsed.error;
+    const data = parsed.data;
 
-    const {
-      name,
-      categoryId,
-      description,
-      price,
-      stockQuantity,
-      onCampusPickup,
-      areaDropOff,
-      postingEnabled,
-      tags,
-    } = parsed.data;
+    const category = await prisma.category.findUnique({ where: { id: data.categoryId }, select: { id: true } });
+    if (!category) return jsonError(400, "That category doesn't exist.");
 
-    // Checked up front so a bad id is a clear 400, not a foreign-key
-    // error from the database turning into a 500.
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      select: { id: true },
-    });
-    if (!category) {
-      return jsonError("The selected category does not exist.", 400);
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        businessId: auth.business.id,
-        categoryId,
-        name,
-        description,
-        price,
-        stockQuantity,
-        onCampusPickup: Boolean(onCampusPickup),
-        areaDropOff: Boolean(areaDropOff),
-        postingEnabled: Boolean(postingEnabled),
-        tags: tags ?? [],
-        status: "PENDING",
-      },
-    });
-
-
-    // Notify every admin that a new product needs review — populates the
-    // "Product Alerts" tab on Admin Notifications.
-    const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
-    if (admins.length > 0) {
-      await prisma.notification.createMany({
-        data: admins.map((admin) => ({
-          userId: admin.id,
-          type: "PRODUCT_ALERT",
-          title: "New Product Awaiting Review",
-          message: `"${name}" was submitted and needs approval.`,
-          relatedEntityType: "Product",
-          relatedEntityId: product.id,
-        })),
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          name: data.name,
+          categoryId: data.categoryId,
+          description: data.description,
+          price: data.price,
+          stockQuantity: data.stockQuantity,
+          tags: data.tags,
+          onCampusPickup: data.onCampusPickup,
+          areaDropOff: data.areaDropOff,
+          postingEnabled: data.postingEnabled,
+          businessId: auth.business.id,
+          status: "PENDING",
+        },
       });
-    }
 
+      // Notify every admin that a new product needs review — populates the
+      // "Product Alerts" tab on Admin Notifications.
+      const admins = await tx.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+      if (admins.length > 0) {
+        await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            type: "PRODUCT_ALERT",
+            title: "New Product Awaiting Review",
+            message: `"${created.name}" was submitted and needs approval.`,
+            relatedEntityType: "Product",
+            relatedEntityId: created.id,
+          })),
+        });
+      }
 
-    return NextResponse.json(
-      { message: "Product submitted for admin review.", product },
-      { status: 201 }
-    );
+      return created;
+    });
+
+    return NextResponse.json({ message: "Product submitted for admin review.", product }, { status: 201 });
   } catch (error) {
-    console.error("Add product error:", error);
-
-    return NextResponse.json(
-      { message: "Unable to add product." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Add product error", { fallback: "Unable to add product." });
   }
 }
 
-// Get the logged-in entrepreneur's own products ("My Products" page).
+// The signed-in entrepreneur's own products ("My Products" page). Pending
+// accounts may look, so they can see what they submitted.
 export async function GET() {
   try {
-    const auth = await requireEntrepreneur();
+    const auth = await requireEntrepreneur({ approvedOnly: false });
     if (auth.error) return auth.error;
 
     const products = await prisma.product.findMany({
@@ -100,11 +76,6 @@ export async function GET() {
 
     return NextResponse.json({ products }, { status: 200 });
   } catch (error) {
-    console.error("Get products error:", error);
-
-    return NextResponse.json(
-      { message: "Unable to load products." },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Get products error", { fallback: "Unable to load products." });
   }
 }

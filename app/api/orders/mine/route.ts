@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireEntrepreneur } from "@/lib/api";
+import { handleRouteError, requireEntrepreneur } from "@/lib/api-auth";
 
 export async function GET() {
   try {
-    const auth = await requireEntrepreneur();
+    const auth = await requireEntrepreneur({ approvedOnly: false });
     if (auth.error) return auth.error;
 
-    // Only orders placed with the caller's own business.
     const orders = await prisma.order.findMany({
       where: { businessId: auth.business.id },
+      omit: { accessToken: true },
       orderBy: { createdAt: "desc" },
       include: {
-        items: { include: { product: { select: { name: true } } } },
+        items: { include: { product: true } },
         salesConfirmation: true,
       },
     });
@@ -52,7 +52,6 @@ export async function GET() {
       stats: { totalRevenue, averageOrderValue, unitsDelivered, pendingEscrow },
     });
   } catch (error) {
-    console.error("Get my orders error:", error);
-    return NextResponse.json({ message: "Unable to load orders." }, { status: 500 });
+    return handleRouteError(error, "Get my orders error", { fallback: "Unable to load orders." });
   }
 }

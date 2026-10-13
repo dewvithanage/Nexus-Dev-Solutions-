@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import Pagination from "@/components/admin/Pagination";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
 
 type EntrepreneurRow = {
@@ -29,26 +30,37 @@ export default function EntrepreneurRegistrationApprovalPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("PENDING");
   const [entrepreneurs, setEntrepreneurs] = useState<EntrepreneurRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function loadEntrepreneurs() {
       setLoading(true);
+      setError("");
       try {
-        // "ALL" means don't send a status filter at all — the API route
-        // returns everyone when no ?status= is given.
-        const query = activeTab === "ALL" ? "" : `?status=${activeTab}`;
-        const response = await fetch(`/api/admin/entrepreneurs${query}`);
+        // "ALL" sends no status filter, so the API returns every active
+        // application (pending + approved).
+        const params = new URLSearchParams({ page: String(page) });
+        if (activeTab !== "ALL") params.set("status", activeTab);
+        const response = await fetch(`/api/admin/entrepreneurs?${params.toString()}`);
         const data = await response.json();
-        if (response.ok) setEntrepreneurs(data.entrepreneurs);
+        if (!response.ok) {
+          setError(data.message || "Unable to load applications.");
+          return;
+        }
+        setEntrepreneurs(data.entrepreneurs);
+        setTotalPages(data.pagination.totalPages);
       } catch (error) {
         console.error("Load entrepreneurs error:", error);
+        setError("Something went wrong loading applications.");
       } finally {
         setLoading(false);
       }
     }
 
     loadEntrepreneurs();
-  }, [activeTab]);
+  }, [activeTab, page]);
 
   const pendingCount = entrepreneurs.filter((e) => e.status === "PENDING").length;
 
@@ -64,7 +76,10 @@ export default function EntrepreneurRegistrationApprovalPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPage(1);
+                }}
                 className={`rounded-md px-4 py-2 text-xs font-semibold transition ${
                   activeTab === tab.key
                     ? "bg-blue-600 text-white"
@@ -82,6 +97,8 @@ export default function EntrepreneurRegistrationApprovalPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             {loading ? (
               <p className="p-8 text-sm text-slate-500">Loading applications...</p>
+            ) : error ? (
+              <p className="p-8 text-sm text-red-600">{error}</p>
             ) : entrepreneurs.length === 0 ? (
               <p className="p-8 text-sm text-slate-500">No applications in this category.</p>
             ) : (
@@ -138,6 +155,8 @@ export default function EntrepreneurRegistrationApprovalPage() {
               </table>
             )}
           </div>
+
+          <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </main>
       </div>
     </div>

@@ -32,7 +32,11 @@ export default function OrderConfirmationPage() {
   useEffect(() => {
     async function loadOrder() {
       try {
-        const response = await fetch(`/api/orders/${params.orderId}`);
+        // The secret token from checkout; without it the order can't be read.
+        const token = new URLSearchParams(window.location.search).get("token") ?? "";
+        const response = await fetch(
+          `/api/orders/${params.orderId}?token=${encodeURIComponent(token)}`
+        );
         const data = await response.json();
 
         if (!response.ok) {

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword, createSessionToken } from "@/lib/auth";
 import { SESSION_COOKIE_NAME } from "@/lib/session";
-import { isValidEmailFormat } from "@/lib/validation";
+import { z } from "zod";
+import { emailField, parseJsonBody } from "@/lib/request-validation";
 import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limit";
 
 // This is almost identical to /api/auth/login (entrepreneur login), but
@@ -20,33 +21,28 @@ import { isLockedOut, recordFailedAttempt, clearAttempts } from "@/lib/rate-limi
 // didn't need as urgently: real email format validation (not just
 // "is it non-empty"), and rate limiting on repeated failed attempts
 // (see lib/rate-limit.ts) to slow down password-guessing attacks.
+const adminLoginSchema = z
+  .object({
+    email: emailField,
+    password: z
+      .string({ required_error: "Email and password are required." })
+      .min(1, "Email and password are required.")
+      .max(200, "Password is too long."),
+  })
+  .strict();
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password } = body as { email?: string; password?: string };
-
-    if (!email || !password) {
-      return NextResponse.json(
-        { message: "Email and password are required." },
-        { status: 400 }
-      );
-    }
-
-    // Real format check — rejects obviously malformed input ("asdf",
-    // "test@", etc.) before it ever reaches the database, instead of
-    // just checking the field isn't empty.
-    if (!isValidEmailFormat(email)) {
-      return NextResponse.json(
-        { message: "Please enter a valid email address." },
-        { status: 400 }
-      );
-    }
+    // Strict schema: a real email format, a bounded password, and nothing else.
+    const parsed = await parseJsonBody(request, adminLoginSchema);
+    if (parsed.error) return parsed.error;
+    const { email, password } = parsed.data;
 
     // Rate limit by email, not IP — this specifically stops "try many
     // passwords against one admin account," which is the realistic
     // threat for a system with only one or two known admin emails.
     const rateLimitKey = email.toLowerCase().trim();
-    const lockStatus = isLockedOut(rateLimitKey);
+    const lockStatus = await isLockedOut(rateLimitKey);
     if (lockStatus.locked) {
       return NextResponse.json(
         {
@@ -56,13 +52,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      // Login is the one place that needs the hash (hidden elsewhere, see lib/prisma.ts).
+      omit: { passwordHash: false, sessionVersion: false },
+    });
 
     // Same error message whether the email doesn't exist OR the account
     // isn't an admin — this avoids telling a stranger "that email exists
     // but isn't an admin", which would leak information.
     if (!user || user.role !== "ADMIN") {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const passwordIsCorrect = await verifyPassword(password, user.passwordHash);
 
     if (!passwordIsCorrect) {
-      recordFailedAttempt(rateLimitKey);
+      await recordFailedAttempt(rateLimitKey);
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }
@@ -82,11 +82,12 @@ export async function POST(request: NextRequest) {
     // Successful login — clear any prior failed attempts for this email
     // so a legitimate admin isn't left partway toward a lockout from
     // earlier typos.
-    clearAttempts(rateLimitKey);
+    await clearAttempts(rateLimitKey);
 
     const token = await createSessionToken({
       userId: user.id,
       role: "ADMIN",
+      sessionVersion: user.sessionVersion,
     });
 
     const response = NextResponse.json(

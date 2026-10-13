@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { requireAdmin } from "@/lib/api-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentUser();
-    if (!admin || admin.role !== "ADMIN") {
-      return NextResponse.json({ message: "Forbidden." }, { status: 403 });
-    }
+    const auth = await requireAdmin();
+    if (auth.error) return auth.error;
 
     const entrepreneurs = await prisma.entrepreneurProfile.findMany({
       where: { status: "APPROVED" },
       orderBy: { appliedAt: "asc" },
       include: {
-        user: true,
+        user: { select: { name: true } },
         business: {
           include: {
             products: true,

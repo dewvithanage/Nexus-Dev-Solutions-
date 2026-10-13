@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { jsonError, requireEntrepreneur } from "@/lib/api";
-import { saveUploadedFile, UploadValidationError } from "@/lib/upload";
+import { handleRouteError, jsonError, requireEntrepreneur } from "@/lib/api-auth";
+import { idField } from "@/lib/request-validation";
+import { saveUploadedFile } from "@/lib/upload";
 
-// Not exported: Next.js only allows HTTP handlers and route config to be
-// exported from a route.ts file.
-const MAX_PRODUCT_IMAGES = 4;
+const MAX_IMAGES_PER_PRODUCT = 4;
 
-// Uploads up to 4 images for a product the logged-in entrepreneur owns.
-// Called from the Add Product page right after the product itself is
-// created (see Risk 6 in the architecture doc — this closes that gap).
+// Uploads up to 4 images for a product the signed-in entrepreneur owns.
+// Called from the Add Product page right after the product is created.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
@@ -19,60 +17,55 @@ export async function POST(
     if (auth.error) return auth.error;
 
     const { productId } = await params;
+    if (!idField.safeParse(productId).success) return jsonError(404, "Product not found.");
 
-    // Make sure this product actually belongs to the logged-in
-    // entrepreneur's own business — otherwise anyone could attach images
-    // to someone else's product just by guessing a product id.
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      select: { businessId: true },
-    });
+    // Someone else's product gets the same 404 as a missing one.
+    const product = await prisma.product.findUnique({ where: { id: productId }, select: { businessId: true } });
     if (!product || product.businessId !== auth.business.id) {
-      return jsonError("Product not found.", 404);
+      return jsonError(404, "Product not found.");
     }
 
     let formData: FormData;
     try {
       formData = await request.formData();
     } catch {
-      return jsonError("Send the images as multipart/form-data.", 400);
+      return jsonError(400, "Request body must be form data.");
     }
-    const files = formData.getAll("images").filter((entry): entry is File => entry instanceof File);
 
+    for (const key of formData.keys()) {
+      if (key !== "images") return jsonError(400, `Unknown field(s): ${key}.`);
+    }
+
+    const files = formData.getAll("images").filter((entry): entry is File => entry instanceof File);
     if (files.length === 0) {
-      return jsonError("No images were provided.", 400);
+      return jsonError(400, "No images were provided.");
     }
 
     const existingCount = await prisma.productImage.count({ where: { productId } });
-    const remainingSlots = Math.max(0, MAX_PRODUCT_IMAGES - existingCount);
-
-    if (remainingSlots === 0) {
+    const remainingSlots = MAX_IMAGES_PER_PRODUCT - existingCount;
+    if (files.length > remainingSlots) {
       return jsonError(
-        `This product already has the maximum of ${MAX_PRODUCT_IMAGES} images. Remove one first.`,
-        409
+        409,
+        remainingSlots > 0
+          ? `This product can have ${remainingSlots} more image(s) (maximum ${MAX_IMAGES_PER_PRODUCT}).`
+          : `This product already has the maximum of ${MAX_IMAGES_PER_PRODUCT} images.`
       );
     }
 
-    const filesToSave = files.slice(0, remainingSlots);
-
-    const createdImages = [];
-    for (let i = 0; i < filesToSave.length; i++) {
-      const url = await saveUploadedFile(filesToSave[i], "products");
-      const image = await prisma.productImage.create({
-        data: { productId, url, sortOrder: existingCount + i },
-      });
-      createdImages.push(image);
+    // Each file is checked (real image content, size) as it is saved.
+    const urls: string[] = [];
+    for (const file of files) {
+      urls.push(await saveUploadedFile(file, "products"));
     }
 
-    return NextResponse.json(
-      { images: createdImages, skipped: files.length - filesToSave.length },
-      { status: 201 }
+    const createdImages = await prisma.$transaction(
+      urls.map((url, i) =>
+        prisma.productImage.create({ data: { productId, url, sortOrder: existingCount + i } })
+      )
     );
+
+    return NextResponse.json({ images: createdImages }, { status: 201 });
   } catch (error) {
-    if (error instanceof UploadValidationError) {
-      return jsonError(error.message, 400);
-    }
-    console.error("Upload product images error:", error);
-    return NextResponse.json({ message: "Unable to upload images." }, { status: 500 });
+    return handleRouteError(error, "Upload product images error", { fallback: "Unable to upload images." });
   }
 }

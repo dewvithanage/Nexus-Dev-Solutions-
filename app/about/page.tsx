@@ -1,12 +1,25 @@
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import { prisma } from "@/lib/prisma";
+import { publicProductWhere } from "@/lib/public-visibility";
 
-export default function AboutPage() {
+// The figures below are counted live from the database, so the page is
+// rendered on each request rather than once at build time.
+export const dynamic = "force-dynamic";
+
+export default async function AboutPage() {
+  const [entrepreneurs, products, unitsSold, categories] = await Promise.all([
+    prisma.entrepreneurProfile.count({ where: { status: "APPROVED" } }),
+    prisma.product.count({ where: publicProductWhere }),
+    prisma.orderItem.aggregate({ where: { order: { status: "VERIFIED" } }, _sum: { quantity: true } }),
+    prisma.category.count(),
+  ]);
+
   const stats = [
-    { value: "350+", label: "Student Creators" },
-    { value: "1,200+", label: "Products Sold" },
-    { value: "12", label: "Partner Universities" },
-    { value: "98%", label: "Satisfaction Rate" },
+    { value: entrepreneurs.toLocaleString(), label: "Student Entrepreneurs" },
+    { value: products.toLocaleString(), label: "Products Listed" },
+    { value: (unitsSold._sum.quantity ?? 0).toLocaleString(), label: "Items Sold" },
+    { value: categories.toLocaleString(), label: "Categories" },
   ];
 
   const steps = [

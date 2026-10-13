@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { publicProductWhere } from "@/lib/public-visibility";
 
 // Public list of categories — used by the Add/Edit Product category
 // dropdown (just needs id/name), and by the Home + Categories pages
@@ -11,7 +12,7 @@ export async function GET() {
       orderBy: { name: "asc" },
       include: {
         _count: {
-          select: { products: { where: { status: "APPROVED" } } },
+          select: { products: { where: publicProductWhere } },
         },
       },
     });
@@ -20,11 +21,6 @@ export async function GET() {
       id: category.id,
       name: category.name,
       slug: category.slug,
-      // Category has no icon column in schema.prisma, so reading
-      // category.icon failed the type check (and the build). null is what
-      // the client always received at runtime; the Home and Categories
-      // pages already fall back to a default icon for it.
-      icon: null,
       productCount: category._count.products,
     }));
 

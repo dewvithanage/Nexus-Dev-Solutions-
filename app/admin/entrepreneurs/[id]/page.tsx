@@ -72,7 +72,10 @@ export default function EntrepreneurDetailsPage() {
   }
 
   async function handleReject() {
-    const reason = window.prompt("Reason for rejecting this application (optional):") || undefined;
+    const input = window.prompt("Reason for rejecting this application (optional):");
+    // Cancel returns null: stop, instead of rejecting without a reason.
+    if (input === null) return;
+    const reason = input.trim() || undefined;
     setActionLoading(true);
     setError("");
     try {

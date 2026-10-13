@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { isUniqueViolation, jsonError, requireEntrepreneur, validationError } from "@/lib/api";
-import { salesConfirmationSchema } from "@/lib/schemas";
-import { saveUploadedFile, UploadValidationError } from "@/lib/upload";
+import { handleRouteError, jsonError, requireEntrepreneur } from "@/lib/api-auth";
+import { idField, optionalText, parseFormBody } from "@/lib/request-validation";
+import { saveUploadedFile } from "@/lib/upload";
 
-// Proof can only be submitted while the order is still open. Once it is
-// PENDING_VERIFICATION, VERIFIED, FLAGGED or CANCELLED the admin has it.
-const OPEN_STATUSES = ["PENDING", "AWAITING_FULFILLMENT"];
+const confirmationSchema = z
+  .object({
+    proofImage: z.instanceof(File, { message: "A proof photo and delivery date are required." }),
+    deliveryDate: z.coerce.date({
+      required_error: "A proof photo and delivery date are required.",
+      invalid_type_error: "Delivery date is not a valid date.",
+    }),
+    notes: optionalText(1000, "Notes"),
+  })
+  .strict();
 
-const ALLOWED_FIELDS = new Set(["proofImage", "deliveryDate", "notes"]);
-
+// The seller uploads proof that an order was handed over. This moves the
+// order into the admin's verification queue:
+// PENDING / AWAITING_FULFILLMENT -> PENDING_VERIFICATION -> VERIFIED / FLAGGED.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ orderId: string }> }
@@ -19,82 +28,53 @@ export async function POST(
     if (auth.error) return auth.error;
 
     const { orderId } = await params;
+    if (!idField.safeParse(orderId).success) return jsonError(404, "Order not found.");
 
-    // Another business's order gets the same 404 as a missing one.
+    // Someone else's order gets the same 404 as a missing one.
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      select: { businessId: true, status: true, salesConfirmation: { select: { id: true } } },
+      select: { businessId: true, status: true, createdAt: true, salesConfirmation: { select: { id: true } } },
     });
     if (!order || order.businessId !== auth.business.id) {
-      return jsonError("Order not found.", 404);
+      return jsonError(404, "Order not found.");
     }
-
     if (order.salesConfirmation) {
-      return jsonError("Proof has already been submitted for this order.", 409);
+      return jsonError(409, "Proof has already been submitted for this order.");
     }
-    if (!OPEN_STATUSES.includes(order.status)) {
-      return jsonError("This order is no longer accepting proof of delivery.", 409);
-    }
-
-    let formData: FormData;
-    try {
-      formData = await request.formData();
-    } catch {
-      return jsonError("Send the proof as multipart/form-data.", 400);
+    if (order.status !== "PENDING" && order.status !== "AWAITING_FULFILLMENT") {
+      return jsonError(409, `This order is ${order.status.toLowerCase().replace(/_/g, " ")}, so proof can't be added.`);
     }
 
-    const unexpected = [...new Set(formData.keys())].filter((key) => !ALLOWED_FIELDS.has(key));
-    if (unexpected.length > 0) {
-      return jsonError(`Unexpected field(s): ${unexpected.join(", ")}.`, 400);
+    const parsed = await parseFormBody(request, confirmationSchema);
+    if (parsed.error) return parsed.error;
+    const { proofImage, deliveryDate, notes } = parsed.data;
+
+    // A handover can't happen before the order existed or in the future.
+    const latestAllowed = Date.now() + 24 * 60 * 60 * 1000; // allows for time zones
+    if (deliveryDate.getTime() < order.createdAt.getTime() - 60_000 || deliveryDate.getTime() > latestAllowed) {
+      return jsonError(400, "Delivery date must be between the order date and today.");
     }
 
-    const file = formData.get("proofImage");
-    if (!(file instanceof File)) {
-      return jsonError("A proof photo and delivery date are required.", 400);
-    }
+    // All checks pass before the file is written, so a refused request
+    // never leaves an orphan file behind.
+    const proofImageUrl = await saveUploadedFile(proofImage, "sales-confirmations");
 
-    const fields = salesConfirmationSchema.safeParse({
-      deliveryDate: formData.get("deliveryDate") ?? undefined,
-      notes: formData.get("notes") ?? undefined,
+    const salesConfirmation = await prisma.$transaction(async (tx) => {
+      const created = await tx.salesConfirmation.create({
+        data: { orderId, proofImageUrl, deliveryDate, notes },
+      });
+      await tx.order.update({ where: { id: orderId }, data: { status: "PENDING_VERIFICATION" } });
+      return created;
     });
-    if (!fields.success) {
-      return validationError(fields.error);
-    }
 
-    // Saved only after everything else has been checked, so a rejected
-    // request leaves no stray file behind.
-    const proofImageUrl = await saveUploadedFile(file, "sales-confirmations");
-
-    // Moves the order into the admin's verification queue — matches the
-    // lifecycle in the architecture doc: PENDING -> AWAITING_FULFILLMENT
-    // -> PENDING_VERIFICATION -> VERIFIED (admin-confirmed) / FLAGGED.
-    // Both writes happen together or not at all.
-    const [salesConfirmation] = await prisma.$transaction([
-      prisma.salesConfirmation.create({
-        data: {
-          orderId,
-          proofImageUrl,
-          deliveryDate: fields.data.deliveryDate,
-          notes: fields.data.notes ?? null,
-        },
-      }),
-      prisma.order.update({
-        where: { id: orderId },
-        data: { status: "PENDING_VERIFICATION" },
-      }),
-    ]);
-
-    return NextResponse.json({ message: "Confirmation submitted for admin review.", salesConfirmation }, { status: 201 });
+    return NextResponse.json(
+      { message: "Confirmation submitted for admin review.", salesConfirmation },
+      { status: 201 }
+    );
   } catch (error) {
-    if (error instanceof UploadValidationError) {
-      return jsonError(error.message, 400);
-    }
-    // Two submissions at the same moment: SalesConfirmation.orderId is
-    // unique, so the database rejects the second one.
-    if (isUniqueViolation(error)) {
-      return jsonError("Proof has already been submitted for this order.", 409);
-    }
-    console.error("Submit sales confirmation error:", error);
-    return NextResponse.json({ message: "Unable to submit confirmation." }, { status: 500 });
+    return handleRouteError(error, "Submit sales confirmation error", {
+      conflict: "Proof has already been submitted for this order.",
+      fallback: "Unable to submit confirmation.",
+    });
   }
 }

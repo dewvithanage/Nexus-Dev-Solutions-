@@ -1,20 +1,21 @@
-import { fileURLToPath } from "url";
+import path from "path";
 import { defineConfig } from "vitest/config";
 
+// Tests call the real Route Handlers against a real PostgreSQL database.
+// tests/global-setup.ts starts a throwaway local Postgres (or uses
+// TEST_DATABASE_URL) and applies prisma/migrations to it, so `npm test`
+// never touches the live Neon database.
 export default defineConfig({
   resolve: {
-    alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
+    alias: { "@": path.resolve(__dirname) },
   },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
-    // Starts a separate, throwaway PostgreSQL for the tests (or uses
-    // TEST_DATABASE_URL). The real DATABASE_URL in .env is never used.
     globalSetup: ["./tests/global-setup.ts"],
     setupFiles: ["./tests/setup.ts"],
-    // All test files share one database, so run them one after another.
+    // All test files share one database, so run them one at a time.
     fileParallelism: false,
     testTimeout: 30_000,
-    hookTimeout: 180_000,
+    hookTimeout: 120_000,
   },
 });
