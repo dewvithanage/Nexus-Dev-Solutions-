@@ -202,3 +202,59 @@ export const getMarketplaceProducts = unstable_cache(
     tags: [CACHE_TAGS.products],
   }
 );
+
+export const getSearchProducts = unstable_cache(
+  async (query: string) => {
+    const normalizedQuery = query.trim();
+
+    const where: Prisma.ProductWhereInput = {
+      ...publicProductWhere,
+     name: {
+  contains: normalizedQuery,
+  mode: "insensitive",
+},
+    };
+
+    const [totalCount, products] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: 48,
+        include: {
+          images: {
+            orderBy: { sortOrder: "asc" },
+            take: 1,
+          },
+          business: {
+            select: { businessName: true },
+          },
+        },
+      }),
+    ]);
+
+    const mappedProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.images[0]?.url ?? null,
+      businessName: product.business.businessName,
+      averageRating:
+        product.ratingCount > 0
+          ? Number(product.ratingAverage.toFixed(1))
+          : null,
+      reviewCount: product.ratingCount,
+      createdAt: product.createdAt,
+    }));
+
+    return {
+      products: toPlain<ProductCardData[]>(mappedProducts),
+      totalCount,
+    };
+  },
+  ["marketplace-search-products"],
+  {
+    revalidate: 60,
+    tags: [CACHE_TAGS.products],
+  }
+);
