@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -318,3 +319,59 @@ export const getCategoryWithProducts = unstable_cache(
     tags: [CACHE_TAGS.categories, CACHE_TAGS.products],
   }
 );
+
+export async function getProductDetails(productId: string) {
+  return unstable_cache(
+    async () => {
+      const product = await prisma.product.findFirst({
+        where: { id: productId, ...publicProductWhere },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          price: true,
+          stockQuantity: true,
+          onCampusPickup: true,
+          areaDropOff: true,
+          postingEnabled: true,
+          ratingAverage: true,
+          ratingCount: true,
+          category: {
+            select: { name: true, slug: true },
+          },
+          images: {
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, url: true },
+          },
+          business: {
+            select: {
+              id: true,
+              businessName: true,
+              entrepreneurProfile: {
+                select: {
+                  whatsappNumber: true,
+                  university: true,
+                  user: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!product) return null;
+
+      return toPlain({
+        ...product,
+        price: Number(product.price),
+        averageRating:
+          product.ratingCount > 0
+            ? Number(product.ratingAverage.toFixed(1))
+            : null,
+        reviewCount: product.ratingCount,
+      });
+    },
+    [`product-details-${productId}`],
+    { revalidate: 60, tags: [CACHE_TAGS.products] }
+  )();
+}
