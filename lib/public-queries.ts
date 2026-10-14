@@ -184,8 +184,8 @@ export const getMarketplaceProducts = unstable_cache(
     }));
 
     return {
-      products: toPlain(mappedProducts),
-      pagination: {
+  products: toPlain<ProductCardData[]>(mappedProducts),
+  pagination: {
         currentPage: page,
         totalPages: Math.max(
           1,
