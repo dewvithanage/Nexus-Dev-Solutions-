@@ -112,6 +112,12 @@ CHECK constraints (e.g. non-negative prices and stock, ratings 1-5) are
 defined in the migration SQL, since Prisma's schema language can't express
 them.
 
+## Deployment
+
+The site is deployed to a DigitalOcean Droplet (Next.js under pm2, Nginx for HTTPS and
+uploads, database on Neon). Step-by-step setup, the update command and troubleshooting are
+in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Security Notice: Secret Committed to Git History
 
 **What happened.** Commit `4ca8492` (18 Sep 2026) accidentally added the file
