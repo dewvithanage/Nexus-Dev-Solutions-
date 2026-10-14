@@ -1,54 +1,22 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import { getOwnProducts, requireEntrepreneurPage } from "@/lib/entrepreneur-data";
 
-type Product = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  stockQuantity: number;
-  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
-  category: { name: string };
-};
-
-export default function MyProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        // No need to send an entrepreneurId — the server figures out who
-        // you are from your login session cookie.
-        const response = await fetch("/api/products");
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.message || "Unable to load products.");
-          return;
-        }
-
-        setProducts(data.products || []);
-      } catch (error) {
-        console.error("Load products error:", error);
-        setError("Something went wrong while loading products.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadProducts();
-  }, []);
+// Server Component: the signed-in seller's products are read on the server
+// before the page is sent, instead of the browser fetching /api/products
+// after it loads. Rendered on every request (it reads the session cookie),
+// so a product added or edited a moment ago is always listed. While it
+// loads, ../loading.tsx shows the page skeleton; if it fails,
+// app/entrepreneur/error.tsx shows a retry message.
+export default async function MyProductsPage() {
+  const { business, sidebar } = await requireEntrepreneurPage();
+  const products = await getOwnProducts(business.id);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
-      <Sidebar />
+      <Sidebar entrepreneur={sidebar} />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="My Products" />
@@ -70,17 +38,7 @@ export default function MyProductsPage() {
             </Link>
           </div>
 
-          {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="rounded-lg border border-[#D8E0EA] bg-white p-8">
-              <p className="text-sm text-[#667085]">Loading products...</p>
-            </div>
-          ) : products.length === 0 ? (
+          {products.length === 0 ? (
             <div className="rounded-lg border border-[#D8E0EA] bg-white p-10 text-center">
               <h2 className="text-lg font-bold text-[#172033]">No Products Yet</h2>
               <p className="mt-2 text-sm text-[#667085]">
@@ -126,7 +84,7 @@ export default function MyProductsPage() {
                       </td>
 
                       <td className="px-5 py-4 text-sm font-medium text-[#172033]">
-                        Rs. {Number(product.price).toFixed(2)}
+                        Rs. {product.price.toFixed(2)}
                       </td>
 
                       <td className="px-5 py-4 text-sm text-[#475467]">
