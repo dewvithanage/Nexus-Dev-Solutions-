@@ -1,28 +1,9 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TrendingUp, Activity, CircleCheck, Clock3 } from "lucide-react";
 
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
-
-type Order = {
-  id: string;
-  buyerName: string;
-  totalAmount: number;
-  status: string;
-  createdAt: string;
-  items: { quantity: number; product: { name: string } }[];
-  salesConfirmation: { id: string } | null;
-};
-
-type Stats = {
-  totalRevenue: number;
-  averageOrderValue: number;
-  unitsDelivered: number;
-  pendingEscrow: number;
-};
+import { getOwnOrders, requireEntrepreneurPage } from "@/lib/entrepreneur-data";
 
 const statusLabels: Record<string, { label: string; style: string }> = {
   PENDING: { label: "Pending", style: "bg-amber-100 text-amber-600" },
@@ -33,32 +14,17 @@ const statusLabels: Record<string, { label: string; style: string }> = {
   CANCELLED: { label: "Cancelled", style: "bg-slate-100 text-slate-500" },
 };
 
-export default function CompletedSalesPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetch("/api/orders/mine")
-      .then(async (response) => {
-        const data = await response.json();
-        // A failed request (e.g. session expired) must not look like
-        // "No orders yet".
-        if (!response.ok) {
-          setError(data.message || "Unable to load orders.");
-          return;
-        }
-        setOrders(data.orders || []);
-        setStats(data.stats || null);
-      })
-      .catch(() => setError("Unable to load orders. Please refresh the page."))
-      .finally(() => setLoading(false));
-  }, []);
+// Server Component: the seller's orders and the four figures above them are
+// worked out on the server (getOwnOrders), so the page arrives complete
+// instead of fetching /api/orders/mine in the browser afterwards. Rendered
+// on every request, so proof submitted a moment ago is reflected at once.
+export default async function CompletedSalesPage() {
+  const { business, sidebar } = await requireEntrepreneurPage();
+  const { orders, stats } = await getOwnOrders(business.id);
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden lg:flex-row bg-[#F5F7FA]">
-      <Sidebar />
+      <Sidebar entrepreneur={sidebar} />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader title="Sales & Orders History" />
@@ -71,7 +37,7 @@ export default function CompletedSalesPage() {
                 <Activity size={17} className="text-blue-600" />
               </div>
               <h3 className="mt-5 text-[22px] font-bold text-[#101828]">
-                Rs.{(stats?.totalRevenue ?? 0).toFixed(2)}
+                Rs.{stats.totalRevenue.toFixed(2)}
               </h3>
               <p className="mt-1 text-[10px] text-slate-500">Cumulative Student Cash</p>
             </div>
@@ -82,7 +48,7 @@ export default function CompletedSalesPage() {
                 <TrendingUp size={17} className="text-blue-600" />
               </div>
               <h3 className="mt-5 text-[22px] font-bold text-[#101828]">
-                Rs.{(stats?.averageOrderValue ?? 0).toFixed(2)}
+                Rs.{stats.averageOrderValue.toFixed(2)}
               </h3>
               <p className="mt-1 text-[10px] text-slate-500">Per order placed</p>
             </div>
@@ -92,7 +58,7 @@ export default function CompletedSalesPage() {
                 <p className="text-xs font-medium text-slate-500">Units Delivered</p>
                 <CircleCheck size={17} className="text-blue-600" />
               </div>
-              <h3 className="mt-5 text-[22px] font-bold text-[#101828]">{stats?.unitsDelivered ?? 0}</h3>
+              <h3 className="mt-5 text-[22px] font-bold text-[#101828]">{stats.unitsDelivered}</h3>
               <p className="mt-1 text-[10px] text-slate-500">Verified & completed</p>
             </div>
 
@@ -102,19 +68,17 @@ export default function CompletedSalesPage() {
                 <Clock3 size={17} className="text-blue-600" />
               </div>
               <h3 className="mt-5 text-[22px] font-bold text-[#101828]">
-                Rs.{(stats?.pendingEscrow ?? 0).toFixed(2)}
+                Rs.{stats.pendingEscrow.toFixed(2)}
               </h3>
               <p className="mt-1 text-[10px] text-slate-500">In processing transit</p>
             </div>
           </section>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-            {loading ? (
-              <p className="p-8 text-sm text-slate-500">Loading orders...</p>
-            ) : error ? (
-              <p className="p-8 text-sm text-red-600">{error}</p>
-            ) : orders.length === 0 ? (
-              <p className="p-8 text-sm text-slate-500">No orders yet.</p>
+            {orders.length === 0 ? (
+              <p className="p-8 text-sm text-slate-500">
+                No orders yet. Orders placed for your products will appear here.
+              </p>
             ) : (
               <table className="w-full min-w-[640px] text-left">
                 <thead className="bg-[#f8fafc]">
@@ -140,7 +104,7 @@ export default function CompletedSalesPage() {
                         <td className="px-5 py-4">{order.items.map((item) => item.product.name).join(", ")}</td>
                         <td className="px-5 py-4">{order.items.reduce((sum, item) => sum + item.quantity, 0)}</td>
                         <td className="px-5 py-4 font-semibold text-slate-800">
-                          Rs.{Number(order.totalAmount).toFixed(2)}
+                          Rs.{order.totalAmount.toFixed(2)}
                         </td>
                         <td className="px-5 py-4">
                           <span className={`rounded-full px-3 py-1 text-[9px] font-semibold ${statusInfo.style}`}>
