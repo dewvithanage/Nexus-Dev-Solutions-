@@ -27,3 +27,6 @@ afterAll(async () => {
   const { prisma } = await import("@/lib/prisma");
   await prisma.$disconnect();
 });
+
+// Direct route-handler tests do not have Next's request cache context.
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));

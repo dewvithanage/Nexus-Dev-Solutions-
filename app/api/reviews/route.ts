@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -51,6 +52,9 @@ export async function POST(request: NextRequest) {
       await refreshProductRating(tx, productId);
       return created;
     });
+
+    revalidatePath(`/products/${productId}/reviews`);
+    revalidatePath(`/products/${productId}/review`);
 
     return NextResponse.json({ message: "Review submitted successfully!", review }, { status: 201 });
   } catch (error) {

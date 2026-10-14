@@ -12,28 +12,25 @@ export function isValidEmailFormat(email: string): boolean {
   return GENERIC_EMAIL_PATTERN.test(email.trim());
 }
 
-// Password rules, shared by the register form, the register API route,
-// and (ideally) the reset-password route, so a weak password can't be
-// slipped in through a different door.
+// New passwords use the same policy in registration/reset forms and APIs.
+// Existing passwords remain usable through login until the owner changes them.
 export const PASSWORD_MIN_LENGTH = 8;
-// bcrypt (used to hash passwords here) ignores everything past 72 bytes,
-// so a longer limit would give a false sense of extra strength.
 export const PASSWORD_MAX_LENGTH = 72;
 export const PASSWORD_RULES_HINT =
-  "At least 8 characters, with at least one letter and one number.";
+  "At least 8 characters, including uppercase and lowercase letters, a number, and a symbol.";
 
-// Returns an error message if the password is not acceptable, or null if
-// it is fine.
 export function validatePassword(password: string): string | null {
   if (password.length < PASSWORD_MIN_LENGTH) {
     return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
   }
-  if (password.length > PASSWORD_MAX_LENGTH) {
-    return `Password must be at most ${PASSWORD_MAX_LENGTH} characters.`;
+  // bcrypt limits input to 72 UTF-8 bytes, not 72 JavaScript characters.
+  if (new TextEncoder().encode(password).length > PASSWORD_MAX_LENGTH) {
+    return "Password must be at most 72 UTF-8 bytes. Use fewer characters if you include emoji or accented letters.";
   }
-  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
-    return "Password must include at least one letter and one number.";
-  }
+  if (!/[A-Z]/.test(password)) return "Password must include an uppercase letter.";
+  if (!/[a-z]/.test(password)) return "Password must include a lowercase letter.";
+  if (!/\d/.test(password)) return "Password must include a number.";
+  if (!/[^A-Za-z0-9\s]/.test(password)) return "Password must include a symbol, such as !, @, or #.";
   return null;
 }
 

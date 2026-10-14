@@ -1,27 +1,17 @@
+import { Suspense } from "react";
+import PageSkeleton from "@/components/public/PageSkeleton";
+import Image from "next/image";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
-import { prisma } from "@/lib/prisma";
-import { publicProductWhere } from "@/lib/public-visibility";
+import AboutStats from "@/components/public/AboutStats";
 
 // The figures below are counted live from the database, so the page is
 // rendered on each request rather than once at build time.
 export const dynamic = "force-dynamic";
 
+export const metadata = { title: "About | StartupSpark" };
+
 export default async function AboutPage() {
-  const [entrepreneurs, products, unitsSold, categories] = await Promise.all([
-    prisma.entrepreneurProfile.count({ where: { status: "APPROVED" } }),
-    prisma.product.count({ where: publicProductWhere }),
-    prisma.orderItem.aggregate({ where: { order: { status: "VERIFIED" } }, _sum: { quantity: true } }),
-    prisma.category.count(),
-  ]);
-
-  const stats = [
-    { value: entrepreneurs.toLocaleString(), label: "Student Entrepreneurs" },
-    { value: products.toLocaleString(), label: "Products Listed" },
-    { value: (unitsSold._sum.quantity ?? 0).toLocaleString(), label: "Items Sold" },
-    { value: categories.toLocaleString(), label: "Categories" },
-  ];
-
   const steps = [
     {
       number: 1,
@@ -66,32 +56,13 @@ export default async function AboutPage() {
             </p>
           </div>
 
-          <div className="flex h-full min-h-[280px] items-center justify-center rounded-xl bg-slate-100">
-            <p className="text-sm text-slate-400">
-              Photo placeholder
-            </p>
+          <div className="relative min-h-[280px] overflow-hidden rounded-xl bg-slate-100">
+            <Image src="/images/new-hero.png" alt="Startup Spark student entrepreneurship community" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
           </div>
         </section>
 
         {/* Statistics Section */}
-        <section className="bg-slate-50 py-12">
-          <div className="mx-auto grid max-w-6xl grid-cols-2 gap-5 px-6 md:grid-cols-4">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-xl border border-slate-200 bg-white p-6 text-center"
-              >
-                <p className="text-3xl font-bold text-blue-600">
-                  {stat.value}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-500">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <Suspense fallback={<PageSkeleton />}><AboutStats /></Suspense>
 
         {/* How It Works Section */}
         <section className="mx-auto max-w-6xl px-6 py-16 text-center">
