@@ -2,16 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-auth";
-import { pageQuery, parseFormBody, parseSearchParams } from "@/lib/request-validation";
+import { parseFormBody, parseSearchParams } from "@/lib/request-validation";
 import { UploadValidationError } from "@/lib/upload";
-
-const ITEMS_PER_PAGE = 10;
-
-const listQuerySchema = z
-  .object({
-    ...pageQuery(ITEMS_PER_PAGE),
-  })
-  .strict();
+import { galleryQuerySchema, getGalleryList } from "@/lib/admin/content";
 
 // Only the image and an optional caption are accepted. Who uploaded it is
 // taken from the session, so a field like "uploadedById" is rejected.
@@ -32,23 +25,10 @@ export async function GET(request: NextRequest) {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 
-    const query = parseSearchParams(request, listQuerySchema);
+    const query = parseSearchParams(request, galleryQuerySchema);
     if (query.error) return query.error;
-    const { page, pageSize } = query.data;
 
-    const totalCount = await prisma.galleryItem.count();
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-    const items = await prisma.galleryItem.findMany({
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-    });
-
-    return NextResponse.json({
-      items,
-      pagination: { currentPage: page, totalPages, totalCount, pageSize },
-    });
+    return NextResponse.json(await getGalleryList(query.data));
   } catch (error) {
     console.error("Get gallery error:", error);
     return NextResponse.json({ message: "Unable to load gallery." }, { status: 500 });

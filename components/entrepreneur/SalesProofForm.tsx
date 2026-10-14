@@ -96,7 +96,7 @@ export default function SalesProofForm({ orderId, sidebar }: { orderId: string; 
                   <p className="mt-2 text-sm font-semibold text-slate-700">
                     Drag & Drop Delivery Photo or Receipt here
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">Supports PNG, JPG or WebP up to 5MB</p>
+                  <p className="mt-1 text-xs text-slate-400">Supports PNG, JPG or WebP up to 4MB</p>
                 </>
               )}
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFileChange} className="hidden" />

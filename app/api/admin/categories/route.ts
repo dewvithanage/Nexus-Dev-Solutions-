@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, requireAdmin } from "@/lib/api-auth";
-import { pageQuery, parseJsonBody, parseSearchParams, requiredText } from "@/lib/request-validation";
+import { parseJsonBody, parseSearchParams, requiredText } from "@/lib/request-validation";
 import { slugify } from "@/lib/slug";
+import { categoriesQuerySchema, getCategoriesList } from "@/lib/admin/content";
 
-const listQuerySchema = z.object({ ...pageQuery() });
 const createSchema = z.object({ name: requiredText(60, "Category name") }).strict();
 
 export async function GET(request: NextRequest) {
@@ -13,24 +13,10 @@ export async function GET(request: NextRequest) {
     const auth = await requireAdmin();
     if (auth.error) return auth.error;
 
-    const query = parseSearchParams(request, listQuerySchema);
+    const query = parseSearchParams(request, categoriesQuerySchema);
     if (query.error) return query.error;
-    const { page, pageSize } = query.data;
 
-    const totalCount = await prisma.category.count();
-    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-      skip: (page - 1) * pageSize,
-      take: pageSize,
-      include: { _count: { select: { products: true } } },
-    });
-
-    return NextResponse.json({
-      categories,
-      pagination: { currentPage: page, totalPages, totalCount, pageSize },
-    });
+    return NextResponse.json(await getCategoriesList(query.data));
   } catch (error) {
     return handleRouteError(error, "Get categories error", { fallback: "Unable to load categories." });
   }
