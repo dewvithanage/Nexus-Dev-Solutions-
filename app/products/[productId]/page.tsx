@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -140,11 +140,14 @@ export default function ProductDetailsPage() {
           <div>
             <div className="aspect-square overflow-hidden rounded-xl bg-white">
               {product.images[selectedImageIndex] && (
-                <img
-                  src={product.images[selectedImageIndex].url}
-                  alt={product.name}
-                  className="h-full w-full object-cover"
-                />
+                <Image
+  src={product.images[selectedImageIndex].url}
+  alt={product.name}
+  width={600}
+  height={600}
+  sizes="(max-width: 1024px) 100vw, 50vw"
+  className="h-full w-full object-cover"
+/>
               )}
             </div>
             {product.images.length > 1 && (
@@ -157,7 +160,13 @@ export default function ProductDetailsPage() {
                       index === selectedImageIndex ? "border-blue-600" : "border-transparent"
                     }`}
                   >
-                    <img src={image.url} alt="" className="h-full w-full object-cover" />
+                    <Image
+  src={image.url}
+  alt={`${product.name} image ${index + 1}`}
+  width={64}
+  height={64}
+  className="h-full w-full object-cover"
+/>
                   </button>
                 ))}
               </div>
