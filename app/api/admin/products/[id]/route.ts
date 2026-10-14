@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAfterModeration } from "@/lib/admin/revalidate";
+import { getProductDetails } from "@/lib/admin/products";
 import { idField, parseJsonBody } from "@/lib/request-validation";
 
 const changeCategorySchema = z.object({ categoryId: idField }).strict();
@@ -17,25 +19,9 @@ export async function GET(
     const { id } = await params;
     if (!idField.safeParse(id).success) return jsonError(404, "Product not found.");
 
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        category: true,
-        images: { orderBy: { sortOrder: "asc" } },
-        business: {
-          include: {
-            entrepreneurProfile: {
-              // Only the seller's display details. Never the whole User row.
-              include: { user: { select: { id: true, name: true, email: true } } },
-            },
-          },
-        },
-      },
-    });
-
-    if (!product) {
-      return jsonError(404, "Product not found.");
-    }
+    // Same data function as the Admin Product Details page.
+    const product = await getProductDetails(id);
+    if (!product) return jsonError(404, "Product not found.");
 
     return NextResponse.json({ product });
   } catch (error) {
@@ -71,6 +57,8 @@ export async function PATCH(
       data: { categoryId },
       include: { category: true },
     });
+
+    revalidateAfterModeration();
 
     return NextResponse.json({ message: "Category updated.", product });
   } catch (error) {
@@ -120,6 +108,8 @@ export async function DELETE(
       prisma.review.deleteMany({ where: { productId: id } }),
       prisma.product.delete({ where: { id } }),
     ]);
+
+    revalidateAfterModeration();
 
     return NextResponse.json({ message: "Product permanently deleted." });
   } catch (error) {

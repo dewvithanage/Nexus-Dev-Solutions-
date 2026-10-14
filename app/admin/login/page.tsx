@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import AdminLoginForm from "@/components/admin/AdminLoginForm";
 
@@ -6,6 +7,10 @@ import AdminLoginForm from "@/components/admin/AdminLoginForm";
 // Register" page — admin accounts are created directly in the database
 // (see the "ADMIN ACCOUNT" section in prisma/seed.ts), since letting
 // anyone sign up as an admin would be a security hole.
+export const metadata: Metadata = { title: "Admin Login | StartupSpark Admin" };
+
+// Static: the page is the same for everyone, so it is prebuilt at build time
+// and served instantly. Only the form (AdminLoginForm) runs in the browser.
 export default function AdminLoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#101b31] px-4 py-10">

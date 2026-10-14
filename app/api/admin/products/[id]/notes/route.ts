@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAdminPages } from "@/lib/admin/revalidate";
 import { idField, optionalText, parseJsonBody } from "@/lib/request-validation";
 
 const notesSchema = z.object({ adminNotes: optionalText(2000, "Notes") }).strict();
@@ -27,6 +28,8 @@ export async function PATCH(
       data: { adminNotes: parsed.data.adminNotes },
       select: { id: true, adminNotes: true },
     });
+
+    revalidateAdminPages();
 
     return NextResponse.json({ message: "Notes saved.", product });
   } catch (error) {

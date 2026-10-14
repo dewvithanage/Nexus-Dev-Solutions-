@@ -1,257 +1,145 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { notFound } from "next/navigation";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import StatusBadge from "@/components/admin/StatusBadge";
+import EntrepreneurDecisionBar from "@/components/admin/entrepreneurs/EntrepreneurDecisionBar";
+import { requireAdminPage } from "@/lib/admin/page-auth";
+import { getEntrepreneurDetails } from "@/lib/admin/entrepreneurs";
+import { idField } from "@/lib/request-validation";
 
-type EntrepreneurDetails = {
-  id: string;
-  university: string | null;
-  studentId: string | null;
-  bio: string | null;
-  whatsappNumber: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  rejectionReason: string | null;
-  user: { name: string; email: string; phone: string | null };
-  business: {
-    businessName: string;
-    description: string | null;
-    products: { id: string; name: string; category: { name: string } }[];
-  } | null;
-};
+type Props = { params: Promise<{ id: string }> };
 
-// This page is used both as the "View" destination from the Registration
-// Approval queue AND from the Entrepreneur Management directory — same
-// details, same actions, just reached from two different lists.
-export default function EntrepreneurDetailsPage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
+// Tab title names the business under review. Shares the page's query
+// (getEntrepreneurDetails is cached per request) and checks the session
+// first, so nothing is looked up for a visitor who isn't an admin.
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  await requireAdminPage();
+  const { id } = await params;
+  const entrepreneur = idField.safeParse(id).success ? await getEntrepreneurDetails(id) : null;
+  return {
+    title: entrepreneur
+      ? `${entrepreneur.business?.businessName ?? entrepreneur.user.name} | StartupSpark Admin`
+      : "Entrepreneur not found | StartupSpark Admin",
+  };
+}
 
-  const [entrepreneur, setEntrepreneur] = useState<EntrepreneurDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+// Server Component, rendered on every request (dynamic): the applicant's
+// contact details are private, and the status must be current when an
+// admin decides to approve or reject. Used from both the Registration
+// Approval queue and the Entrepreneur Management directory.
+export default async function EntrepreneurDetailsPage({ params }: Props) {
+  await requireAdminPage();
 
-  useEffect(() => {
-    loadDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+  const { id } = await params;
+  if (!idField.safeParse(id).success) notFound();
 
-  async function loadDetails() {
-    try {
-      const response = await fetch(`/api/admin/entrepreneurs/${params.id}`);
-      const data = await response.json();
-      if (response.ok) setEntrepreneur(data.entrepreneur);
-    } catch (error) {
-      console.error("Load entrepreneur details error:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const entrepreneur = await getEntrepreneurDetails(id);
+  if (!entrepreneur) notFound();
 
-  async function handleApprove() {
-    setActionLoading(true);
-    setError("");
-    setNotice("");
-    try {
-      const response = await fetch(`/api/admin/entrepreneurs/${params.id}/approve`, {
-        method: "PATCH",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || "Unable to approve.");
-        return;
-      }
-      setNotice(data.message || "");
-      await loadDetails();
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleReject() {
-    const input = window.prompt("Reason for rejecting this application (optional):");
-    // Cancel returns null: stop, instead of rejecting without a reason.
-    if (input === null) return;
-    const reason = input.trim() || undefined;
-    setActionLoading(true);
-    setError("");
-    setNotice("");
-    try {
-      const response = await fetch(`/api/admin/entrepreneurs/${params.id}/reject`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rejectionReason: reason }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setError(data.message || "Unable to reject.");
-        return;
-      }
-      setNotice(data.message || "");
-      await loadDetails();
-    } finally {
-      setActionLoading(false);
-    }
-  }
+  const products = entrepreneur.business?.products ?? [];
+  const productTotal = entrepreneur.business?._count.products ?? 0;
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
       <AdminSidebar />
 
       <div className="min-w-0 flex-1">
-        <div className="flex min-h-[46px] flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E2E8F0] bg-white px-4 py-2 sm:px-5">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-left text-[13px] font-semibold text-slate-700 hover:text-slate-900"
-          >
-            <ArrowLeft size={16} />
-            Reviewing Application {entrepreneur ? `— ${entrepreneur.user.name}` : ""}
-          </button>
-
-          {entrepreneur?.status === "PENDING" && (
-            <div className="flex w-full gap-2 sm:w-auto">
-              <button
-                onClick={handleReject}
-                disabled={actionLoading}
-                className="flex-1 whitespace-nowrap rounded-md bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-60 sm:flex-none"
-              >
-                Reject Business
-              </button>
-              <button
-                onClick={handleApprove}
-                disabled={actionLoading}
-                className="flex-1 whitespace-nowrap rounded-md bg-emerald-500 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-60 sm:flex-none"
-              >
-                Approve & Activate
-              </button>
-            </div>
-          )}
-        </div>
+        <EntrepreneurDecisionBar
+          entrepreneurId={entrepreneur.id}
+          name={entrepreneur.user.name}
+          status={entrepreneur.status}
+        />
 
         <main className="p-4 sm:p-6 lg:p-8">
-          {loading ? (
-            <p className="text-sm text-slate-500">Loading...</p>
-          ) : !entrepreneur ? (
-            <p className="text-sm text-red-500">Entrepreneur not found.</p>
-          ) : (
-            <>
-              {error && (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-                  {error}
-                </div>
-              )}
-              {notice && !error && (
-                <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-                  {notice}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
-                {/* Profile card */}
-                <div className="h-fit rounded-xl border border-slate-200 bg-white p-6 text-center">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-600">
-                    {entrepreneur.user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <h2 className="mt-3 text-base font-bold text-slate-900">
-                    {entrepreneur.user.name}
-                  </h2>
-                  <span
-                    className={`mt-2 inline-block rounded-full px-3 py-1 text-[10px] font-semibold ${
-                      entrepreneur.status === "APPROVED"
-                        ? "bg-emerald-100 text-emerald-600"
-                        : entrepreneur.status === "REJECTED"
-                        ? "bg-red-100 text-red-600"
-                        : "bg-amber-100 text-amber-600"
-                    }`}
-                  >
-                    {entrepreneur.status}
-                  </span>
-
-                  <div className="mt-5 space-y-3 border-t border-slate-100 pt-5 text-left text-xs">
-                    <div>
-                      <p className="text-slate-400">Faculty / University</p>
-                      <p className="font-medium text-slate-800">{entrepreneur.university || "—"}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Email</p>
-                      <p className="font-medium text-slate-800">{entrepreneur.user.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Phone Number</p>
-                      <p className="font-medium text-slate-800">
-                        {entrepreneur.user.phone || entrepreneur.whatsappNumber || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-slate-400">Student ID</p>
-                      <p className="font-medium text-slate-800">{entrepreneur.studentId || "—"}</p>
-                    </div>
-                    {entrepreneur.rejectionReason && (
-                      <div>
-                        <p className="text-slate-400">Rejection Reason</p>
-                        <p className="font-medium text-red-600">{entrepreneur.rejectionReason}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Business overview */}
-                <div className="space-y-5">
-                  <div className="rounded-xl border border-slate-200 bg-white p-6">
-                    <h3 className="text-sm font-bold text-slate-900">Proposed Venture Overview</h3>
-
-                    <div className="mt-4">
-                      <p className="text-xs text-slate-400">Venture / Brand Name</p>
-                      <p className="text-base font-bold text-blue-600">
-                        {entrepreneur.business?.businessName || "—"}
-                      </p>
-                    </div>
-
-                    <div className="mt-4">
-                      <p className="text-xs text-slate-400">Venture Description</p>
-                      <p className="text-sm text-slate-700">
-                        {entrepreneur.business?.description || "No description provided yet."}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-200 bg-white p-6">
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Submitted Products ({entrepreneur.business?.products.length ?? 0})
-                    </h3>
-
-                    {!entrepreneur.business?.products.length ? (
-                      <p className="mt-3 text-xs text-slate-500">No products submitted yet.</p>
-                    ) : (
-                      <ul className="mt-3 divide-y divide-slate-100">
-                        {entrepreneur.business.products.map((product) => (
-                          <li key={product.id} className="flex justify-between py-2 text-xs">
-                            <span className="font-medium text-slate-800">{product.name}</span>
-                            <span className="text-slate-400">{product.category.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
+            {/* Profile card */}
+            <div className="h-fit rounded-xl border border-slate-200 bg-white p-6 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-xl font-bold text-blue-600">
+                {entrepreneur.user.name.charAt(0).toUpperCase()}
               </div>
+              <h2 className="mt-3 text-base font-bold text-slate-900">{entrepreneur.user.name}</h2>
+              <StatusBadge status={entrepreneur.status} className="mt-2 inline-block text-[10px]" />
 
-              <Link
-                href="/admin/entrepreneurs"
-                className="mt-6 inline-block text-xs font-semibold text-blue-600 hover:underline"
-              >
-                ← Back to Entrepreneur Directory
-              </Link>
-            </>
-          )}
+              <dl className="mt-5 space-y-3 border-t border-slate-100 pt-5 text-left text-xs">
+                <Detail label="Faculty / University" value={entrepreneur.university} />
+                <Detail label="Email" value={entrepreneur.user.email} breakAll />
+                <Detail label="Phone Number" value={entrepreneur.user.phone || entrepreneur.whatsappNumber} />
+                <Detail label="Student ID" value={entrepreneur.studentId} />
+                {entrepreneur.rejectionReason && (
+                  <div>
+                    <dt className="text-slate-400">Rejection Reason</dt>
+                    <dd className="font-medium text-red-600">{entrepreneur.rejectionReason}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            {/* Business overview */}
+            <div className="space-y-5">
+              <section className="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 className="text-sm font-bold text-slate-900">Proposed Venture Overview</h3>
+
+                <div className="mt-4">
+                  <p className="text-xs text-slate-400">Venture / Brand Name</p>
+                  <p className="text-base font-bold text-blue-600">{entrepreneur.business?.businessName || "—"}</p>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs text-slate-400">Venture Description</p>
+                  <p className="text-sm text-slate-700">
+                    {entrepreneur.business?.description || "No description provided yet."}
+                  </p>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-slate-200 bg-white p-6">
+                <h3 className="text-sm font-bold text-slate-900">Submitted Products ({productTotal})</h3>
+
+                {products.length === 0 ? (
+                  <p className="mt-3 text-xs text-slate-500">No products submitted yet.</p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-slate-100">
+                    {products.map((product) => (
+                      <li key={product.id} className="flex justify-between gap-3 py-2 text-xs">
+                        <Link
+                          href={`/admin/products/${product.id}`}
+                          className="font-medium text-slate-800 hover:text-blue-600"
+                        >
+                          {product.name}
+                        </Link>
+                        <span className="text-slate-400">{product.category.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {productTotal > products.length && (
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    Showing the latest {products.length} of {productTotal}.
+                  </p>
+                )}
+              </section>
+            </div>
+          </div>
+
+          <Link
+            href="/admin/entrepreneurs"
+            className="mt-6 inline-block text-xs font-semibold text-blue-600 hover:underline"
+          >
+            ← Back to Entrepreneur Directory
+          </Link>
         </main>
       </div>
+    </div>
+  );
+}
+
+function Detail({ label, value, breakAll }: { label: string; value: string | null; breakAll?: boolean }) {
+  return (
+    <div>
+      <dt className="text-slate-400">{label}</dt>
+      <dd className={`font-medium text-slate-800 ${breakAll ? "break-all" : ""}`}>{value || "—"}</dd>
     </div>
   );
 }

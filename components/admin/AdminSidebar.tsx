@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import ResponsiveSidebar from "@/components/dashboard/ResponsiveSidebar";
 import { usePathname, useRouter } from "next/navigation";
@@ -49,16 +50,19 @@ export default function AdminSidebar() {
     <ResponsiveSidebar
       brand={
         <Link href="/" className="flex items-center gap-2.5">
-          <img src="/images/startup-spark-logo.png" alt="" className="h-8 w-8 rounded object-cover" />
+          {/* next/image: the logo file is 1239px wide; this serves a 32px copy. */}
+          <Image src="/images/startup-spark-logo.png" alt="" width={32} height={32} className="h-8 w-8 rounded object-cover" />
           <span className="text-[15px] font-bold">StartupSpark</span>
           <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-400">Admin</span>
         </Link>
       }
     >
       <Link href="/" className="mb-8 flex items-center gap-3 rounded-md px-2 py-1 transition hover:bg-[#162A49]">
-        <img
+        <Image
           src="/images/startup-spark-logo.png"
           alt="StartupSpark Logo"
+          width={36}
+          height={36}
           className="h-9 w-9 rounded object-cover"
         />
         <div>
