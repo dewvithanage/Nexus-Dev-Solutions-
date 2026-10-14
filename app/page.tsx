@@ -1,3 +1,5 @@
+
+import Image from "next/image";
 import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
@@ -8,14 +10,10 @@ import Footer from "@/components/public/Footer";
 import TrendingProductGrid from "@/components/public/TrendingProductGrid";
 import { getHomeCategories, getFeaturedProducts } from "@/lib/public-queries";
 
-// The hero photo. The 1.3 MB PNG is the biggest thing this page loads. After
-// making the smaller version (public/images/hero.webp, about 250 KB), change
-// this one line to "/images/hero.webp".
+// The hero photo used on the homepage.
 const HERO_IMAGE = "/images/new-hero.png";
 
-// Maps the icon name stored in the database (set by prisma/seed.ts) to an
-// actual icon component. Falls back to a generic icon if it's ever a name
-// this map doesn't recognize, rather than crashing the page.
+// Maps category icon names to icon components.
 const categoryIcons: Record<string, LucideIcon> = {
   hand: Hand,
   cpu: Cpu,
@@ -52,9 +50,7 @@ function TrendingSkeleton() {
   );
 }
 
-// Each section loads its own data, so the hero and headings appear straight
-// away and the sections fill in as their data arrives. If one fails, only
-// that section shows a message; the rest of the page still works.
+// Each section loads its own data and handles its own errors.
 async function CategoriesSection() {
   let categories: Awaited<ReturnType<typeof getHomeCategories>> = [];
   let failed = false;
@@ -81,7 +77,8 @@ async function CategoriesSection() {
   return (
     <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
       {categories.map((category) => {
-       const Icon = Hand;
+        const Icon = categoryIcons[category.slug] ?? Hand;
+
         return (
           <Link
             key={category.id}
@@ -89,8 +86,12 @@ async function CategoriesSection() {
             className="rounded-xl border border-slate-200 bg-white p-5 text-center transition hover:border-blue-300 hover:shadow-sm"
           >
             <Icon size={22} className="mx-auto text-blue-600" />
-            <p className="mt-3 text-sm font-semibold text-slate-800">{category.name}</p>
-            <p className="mt-1 text-xs text-slate-400">{category.productCount} Products</p>
+            <p className="mt-3 text-sm font-semibold text-slate-800">
+              {category.name}
+            </p>
+            <p className="mt-1 text-xs text-slate-400">
+              {category.productCount} Products
+            </p>
           </Link>
         );
       })}
@@ -128,9 +129,7 @@ async function TrendingSection() {
   return <TrendingProductGrid products={products} />;
 }
 
-// RENDERING: the page is built on the server for each request (the data
-// comes from the database, which a static build could not always reach) and
-// its queries are cached for 60 seconds, so most visits are fast.
+// Render the page on the server and use the cached data queries.
 export default async function HomePage() {
   await connection();
 
@@ -139,17 +138,15 @@ export default async function HomePage() {
       <Navbar />
 
       <main className="flex-1">
-        {/* Hero — full-bleed background photo (Ken Burns zoom) with a
-            dark gradient overlay so the white text stays readable on
-            top of it. */}
+        {/* Hero — full-bleed background photo with a dark gradient overlay. */}
         <section className="relative isolate flex h-[520px] items-center overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={HERO_IMAGE}
             alt="Startup Spark — student entrepreneurs"
-            fetchPriority="high"
-            decoding="async"
-            className="animate-kenburns absolute inset-0 h-full w-full object-cover"
+            fill
+            priority
+            sizes="100vw"
+            className="animate-kenburns object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-black/10" />
 
@@ -184,7 +181,9 @@ export default async function HomePage() {
         {/* Featured Categories */}
         <section className="bg-slate-50 py-14">
           <div className="mx-auto max-w-6xl px-6">
-            <h2 className="text-xl font-bold text-slate-900">Featured Categories</h2>
+            <h2 className="text-xl font-bold text-slate-900">
+              Featured Categories
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
               Explore the diverse range of creative items built around campus schedules.
             </p>
@@ -198,7 +197,9 @@ export default async function HomePage() {
         <section className="mx-auto max-w-6xl px-6 py-14">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Trending Innovations</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                Trending Innovations
+              </h2>
               <p className="mt-1 text-sm text-slate-500">
                 Check out the most loved, top-rated products published this week.
               </p>
@@ -224,17 +225,40 @@ export default async function HomePage() {
 
           <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-5 px-6 text-left md:grid-cols-4">
             {[
-              { step: 1, title: "Browse Marketplace", text: "Discover products or student services tailored directly to your local academic community." },
-              { step: 2, title: "Select & Customize", text: "Choose specific sizing, colors, or project deliverables straight from the listing details." },
-              { step: 3, title: "WhatsApp Confirm", text: "Get connected with the student entrepreneur immediately via WhatsApp to agree on payment & pickup." },
-              { step: 4, title: "Receive & Review", text: "Pick up your item directly on-campus or get the digital download link. Leave stars to boost them!" },
+              {
+                step: 1,
+                title: "Browse Marketplace",
+                text: "Discover products or student services tailored directly to your local academic community.",
+              },
+              {
+                step: 2,
+                title: "Select & Customize",
+                text: "Choose specific sizing, colors, or project deliverables straight from the listing details.",
+              },
+              {
+                step: 3,
+                title: "WhatsApp Confirm",
+                text: "Get connected with the student entrepreneur immediately via WhatsApp to agree on payment & pickup.",
+              },
+              {
+                step: 4,
+                title: "Receive & Review",
+                text: "Pick up your item directly on-campus or get the digital download link. Leave stars to boost them!",
+              },
             ].map((item) => (
-              <div key={item.step} className="rounded-xl border border-slate-200 bg-white p-5">
+              <div
+                key={item.step}
+                className="rounded-xl border border-slate-200 bg-white p-5"
+              >
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
                   {item.step}
                 </div>
-                <h3 className="mt-3 text-sm font-bold text-slate-900">{item.title}</h3>
-                <p className="mt-2 text-xs leading-5 text-slate-500">{item.text}</p>
+                <h3 className="mt-3 text-sm font-bold text-slate-900">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  {item.text}
+                </p>
               </div>
             ))}
           </div>
