@@ -1,25 +1,40 @@
 import nodemailer from "nodemailer";
 
-// All outgoing email goes through Gmail with an app password
-// (EMAIL_USER / EMAIL_APP_PASSWORD in .env). Throws if email isn't set up
-// or sending fails; callers decide whether that should stop what they're doing.
-async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }) {
-  const emailUser = process.env.EMAIL_USER;
-  const emailPassword = process.env.EMAIL_APP_PASSWORD;
-
-  if (!emailUser || !emailPassword) {
-    throw new Error("Email configuration is missing.");
-  }
-
+// Credentials are read only on the server. Gmail app passwords are often
+// copied in four groups; remove spaces without modifying the environment file.
+function createEmailTransport() {
+  const emailUser = process.env.EMAIL_USER?.trim();
+  const emailPassword = process.env.EMAIL_APP_PASSWORD?.replace(/\s/g, "");
+  if (!emailUser || !emailPassword) throw new Error("Email configuration is missing.");
   const transporter = nodemailer.createTransport({
     service: "gmail",
-    auth: {
-      user: emailUser,
-      pass: emailPassword,
-    },
+    auth: { user: emailUser, pass: emailPassword },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
   });
+  return { transporter, emailUser };
+}
 
-  await transporter.sendMail({ from: `"StartupSpark" <${emailUser}>`, to, subject, text, html });
+// Check availability for every valid reset request BEFORE checking whether
+// the account exists. An SMTP outage then returns the same error for everyone.
+export async function verifyPasswordResetEmailService() {
+  const { transporter } = createEmailTransport();
+  try {
+    await transporter.verify();
+  } finally {
+    transporter.close();
+  }
+}
+
+async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }) {
+  const { transporter, emailUser } = createEmailTransport();
+  try {
+    const result = await transporter.sendMail({ from: `"StartupSpark" <${emailUser}>`, to, subject, text, html });
+    if (!result.accepted?.length) throw new Error("Email provider did not accept the recipient.");
+  } finally {
+    transporter.close();
+  }
 }
 
 // Names and reasons are typed by users, so they're escaped before going
@@ -57,7 +72,7 @@ If you did not request a password reset, you can ignore this email.
       <p>You requested to reset your StartupSpark password.</p>
 
       <p>
-        <a href="${resetLink}">Reset Your Password</a>
+        <a href="${escapeHtml(resetLink)}">Reset Your Password</a>
       </p>
 
       <p>This link will expire in 1 hour.</p>

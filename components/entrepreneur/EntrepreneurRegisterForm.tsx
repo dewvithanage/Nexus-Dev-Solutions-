@@ -41,9 +41,10 @@ export default function EntrepreneurRegisterForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError("");
 
-    if (!formData.fullName || !formData.email || !formData.password) {
+    if (!formData.fullName.trim() || !formData.email.trim() || !formData.phone.trim() || !formData.businessName.trim() || !formData.password) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -67,7 +68,7 @@ export default function EntrepreneurRegisterForm() {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, fullName: formData.fullName.trim(), email: formData.email.trim(), phone: formData.phone.trim(), businessName: formData.businessName.trim() }),
       });
 
       const data = await response.json();
@@ -113,6 +114,7 @@ export default function EntrepreneurRegisterForm() {
       <Input
         label="Full Name"
         name="fullName"
+        autoComplete="name"
         value={formData.fullName}
         placeholder="Enter your full name"
         onChange={handleChange}
@@ -121,6 +123,7 @@ export default function EntrepreneurRegisterForm() {
       <Input
         label="Email"
         name="email"
+        autoComplete="email"
         type="email"
         value={formData.email}
         placeholder="e.g. yourname@gmail.com"
@@ -130,6 +133,8 @@ export default function EntrepreneurRegisterForm() {
       <Input
         label="Contact Number"
         name="phone"
+        type="tel"
+        autoComplete="tel"
         value={formData.phone}
         placeholder="Enter contact number"
         onChange={handleChange}
@@ -147,6 +152,7 @@ export default function EntrepreneurRegisterForm() {
         <Input
           label="Password"
           name="password"
+          autoComplete="new-password"
           type="password"
           value={formData.password}
           placeholder="Create a password"
@@ -155,9 +161,9 @@ export default function EntrepreneurRegisterForm() {
         <p className="mt-1 text-[11px] text-slate-400">{PASSWORD_RULES_HINT}</p>
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
-      <Button type="submit">{loading ? "Registering..." : "Register"}</Button>
+      <Button type="submit" disabled={loading} className="disabled:opacity-60">{loading ? "Registering..." : "Register"}</Button>
     </form>
   );
 }

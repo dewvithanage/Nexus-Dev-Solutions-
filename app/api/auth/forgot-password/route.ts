@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordResetEmail, verifyPasswordResetEmailService } from "@/lib/email";
 import { parseJsonBody } from "@/lib/request-validation";
 import { RESET_TOKEN_TTL_MS, generateResetToken, hashResetToken } from "@/lib/reset-token";
 
@@ -21,17 +21,25 @@ const forgotPasswordSchema = z
 // Generates a password reset token valid for 1 hour, and emails the link to
 // the user via Gmail (see lib/email.ts).
 //
-// SECURITY: the reset link must only ever reach the person who owns the
-// email address. If sending fails, the link is shown on screen ONLY when
-// the app is running in development mode (npm run dev). In any other mode
-// the response is the same generic message as for an unknown email -
-// otherwise anyone could type another person's email (including the admin's)
-// and get a working reset link back.
+// Reset links only reach the account owner by email. Every API response is
+// generic and never includes a usable token, including in development.
 export async function POST(request: NextRequest) {
   try {
     const parsed = await parseJsonBody(request, forgotPasswordSchema);
     if (parsed.error) return parsed.error;
     const { email } = parsed.data;
+
+    try {
+      await verifyPasswordResetEmailService();
+    } catch (error) {
+      // Log diagnostics, never SMTP credentials, recipient addresses or reset links.
+      const smtp = error as { code?: string; responseCode?: number };
+      console.warn("Password reset email service unavailable", { code: smtp.code, responseCode: smtp.responseCode });
+      return NextResponse.json(
+        { message: "Password reset email is temporarily unavailable. Please try again later.", resetLink: null },
+        { status: 503, headers: { "Retry-After": "60" } }
+      );
+    }
 
     // Case-insensitive: emails are stored as typed at registration, so
     // "Nimal@Gmail.com" must also be found as "nimal@gmail.com".
@@ -42,8 +50,7 @@ export async function POST(request: NextRequest) {
 
     if (!user) {
       return NextResponse.json({
-        message: "If that email is registered, a reset link has been sent to it.",
-        sentViaEmail: true,
+        message: "If this email belongs to a registered account, you will receive a password reset link.",
         resetLink: null,
       });
     }
@@ -63,7 +70,9 @@ export async function POST(request: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-    const resetLink = `${appUrl}/entrepreneur/reset-password?token=${token}`;
+    const resetUrl = new URL("/entrepreneur/reset-password", appUrl);
+    resetUrl.searchParams.set("token", token);
+    const resetLink = resetUrl.toString();
 
     try {
       await sendPasswordResetEmail(user.email, resetLink);
@@ -71,28 +80,23 @@ export async function POST(request: NextRequest) {
       // Word for word the same reply as for an unknown email, so the answer
       // never reveals whether an account exists.
       return NextResponse.json({
-        message: "If that email is registered, a reset link has been sent to it.",
-        sentViaEmail: true,
+        message: "If this email belongs to a registered account, you will receive a password reset link.",
         resetLink: null,
       });
     } catch (emailError) {
-      console.warn("Email sending failed:", emailError);
+      const smtp = emailError as { code?: string; responseCode?: number };
+      console.warn("Password reset email delivery failed", { code: smtp.code, responseCode: smtp.responseCode });
+      // Remove only this undelivered token; never erase a newer request's token.
+      await prisma.user.updateMany({
+        where: { id: user.id, resetToken: hashResetToken(token) },
+        data: { resetToken: null, resetTokenExpiry: null },
+      });
 
-      // Development convenience only: lets a teammate without email set up
-      // in their .env still test the reset flow end to end.
-      if (process.env.NODE_ENV === "development") {
-        return NextResponse.json({
-          message: "Email could not be sent. Showing the reset link for development.",
-          sentViaEmail: false,
-          resetLink,
-        });
-      }
-
+      // Never disclose a reset token in an API response, including development.
       // Anywhere else: say nothing that reveals the link, or whether the
       // email is registered.
       return NextResponse.json({
-        message: "If that email is registered, a reset link has been sent to it.",
-        sentViaEmail: true,
+        message: "If this email belongs to a registered account, you will receive a password reset link.",
         resetLink: null,
       });
     }

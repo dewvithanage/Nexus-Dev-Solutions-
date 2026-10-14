@@ -2,6 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 import EntrepreneurLoginForm from "@/components/entrepreneur/EntrepreneurLoginForm";
 
+export const metadata = { title: "Entrepreneur Login | StartupSpark" };
+
 export default function EntrepreneurLoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#101b31] px-4 py-10">
