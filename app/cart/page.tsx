@@ -1,5 +1,5 @@
 "use client";
-
+import Image from "next/image";
 import Link from "next/link";
 import { Trash2, ShoppingCart as CartIcon } from "lucide-react";
 
@@ -61,8 +61,15 @@ export default function ShoppingCartPage() {
                       <div key={item.productId} className="flex items-center gap-4">
                         <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-slate-100">
                           {item.imageUrl && (
-                            <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
-                          )}
+  <Image
+    src={item.imageUrl}
+    alt={item.name}
+    width={64}
+    height={64}
+    sizes="64px"
+    className="h-full w-full object-cover"
+  />
+)}
                         </div>
 
                         <div className="flex-1">
