@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
 import { idField } from "@/lib/request-validation";
+import { getSaleDetails } from "@/lib/admin/sales";
 
 export async function GET(
   request: NextRequest,
@@ -15,24 +15,7 @@ export async function GET(
     const { orderId } = await params;
     if (!idField.safeParse(orderId).success) return jsonError(404, "Order not found.");
 
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      omit: { accessToken: true },
-      include: {
-        business: {
-          include: {
-            entrepreneurProfile: {
-              include: { user: { select: { id: true, name: true, email: true } } },
-            },
-          },
-        },
-        items: { include: { product: { select: { id: true, name: true } } } },
-        salesConfirmation: {
-          include: { verifiedBy: { select: { id: true, name: true } } },
-        },
-      },
-    });
-
+    const order = await getSaleDetails(orderId);
     if (!order) {
       return jsonError(404, "Order not found.");
     }
