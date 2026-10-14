@@ -7,6 +7,7 @@ import { Plus, X } from "lucide-react";
 
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
+import { uploadProductImages } from "@/lib/upload-product-images";
 
 type Category = { id: string; name: string };
 
@@ -175,15 +176,9 @@ export default function EditProductPage() {
       }
 
       if (newFiles.length > 0) {
-        const imageFormData = new FormData();
-        newFiles.forEach((file) => imageFormData.append("images", file));
-        const imageResponse = await fetch(`/api/products/${params.productId}/images`, {
-          method: "POST",
-          body: imageFormData,
-        });
-        if (!imageResponse.ok) {
-          const imageData = await imageResponse.json().catch(() => ({}));
-          setError(`Changes saved, but the new images couldn't be added: ${imageData.message || "upload failed"}`);
+        const upload = await uploadProductImages(params.productId, newFiles);
+        if (!upload.ok) {
+          setError(`Changes saved, but the new images couldn't be added: ${upload.message}`);
           return;
         }
       }

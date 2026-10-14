@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 
 import Navbar from "@/components/public/Navbar";
@@ -10,7 +10,6 @@ import { useCart } from "@/lib/cart-context";
 
 export default function OrderFormPage() {
   const params = useParams<{ businessId: string }>();
-  const router = useRouter();
   const { items, clearBusinessItems } = useCart();
 
   const businessItems = items.filter(
@@ -80,6 +79,11 @@ export default function OrderFormPage() {
       router.push(
         `/order-confirmation/${data.orderId}?token=${data.accessToken}`
       );
+      // The token proves this browser placed the order; the confirmation
+      // page can't be opened with the order id alone. A full page load (not
+      // router.push) so that no analytics script from the storefront is still
+      // running when the address contains the token.
+      window.location.assign(`/order-confirmation/${data.orderId}?token=${encodeURIComponent(data.accessToken)}`);
     } catch (error) {
       console.error("Place order error:", error);
       setError("Something went wrong. Please try again.");

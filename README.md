@@ -112,6 +112,12 @@ CHECK constraints (e.g. non-negative prices and stock, ratings 1-5) are
 defined in the migration SQL, since Prisma's schema language can't express
 them.
 
+## Deployment
+
+The site is deployed on Vercel (Hobby plan), with the database on Neon and uploaded
+images in Vercel Blob. Setup, environment variables, migrations and troubleshooting are
+in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
 ## Security Notice: Secret Committed to Git History
 
 **What happened.** Commit `4ca8492` (18 Sep 2026) accidentally added the file
@@ -178,10 +184,10 @@ node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 
 ## Known Limitations
 
-- **Uploaded images are stored on the server's disk** (`public/uploads`).
-  This works on a single server, but most cloud hosts (e.g. Vercel) don't
-  keep files written at runtime. Before deploying there, move uploads to
-  object storage such as Supabase Storage, Vercel Blob or S3.
+- **Uploaded images are public to anyone with the exact address.** In
+  production they are stored in Vercel Blob (locally in `public/uploads`)
+  under random UUID names that can't be guessed, but payment proofs are not
+  behind a login. Images are limited to 4 MB (Vercel's request size limit).
 - Stock is reserved when a guest places an order. There is no "cancel
   order" flow yet, so a cancelled order's stock has to be corrected by
   editing the product.
