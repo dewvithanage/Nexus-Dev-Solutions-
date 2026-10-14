@@ -42,7 +42,8 @@ Project → Settings → **Environment Variables** (Production, and Preview if y
 | `JWT_SECRET` | The current, rotated secret |
 | `EMAIL_USER` | Gmail address that sends emails |
 | `EMAIL_APP_PASSWORD` | Its Gmail app password |
-| `NEXT_PUBLIC_APP_URL` | The site's address, e.g. `https://startupspark.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | The site's real address (Vercel → Domains), with `https://` |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Optional: Google Analytics ID (`G-…`), see "Visitor statistics" below |
 | `BLOB_READ_WRITE_TOKEN` | Added by step 2, nothing to type |
 
 Never commit these values or paste them into chats, issues or screenshots.
@@ -99,6 +100,36 @@ Reports must come from the production URL (see `docs/lighthouse/README.md`):
 2. Merge the ICA 6 PRs. Vercel redeploys; run `npx prisma migrate deploy` if they added
    migrations.
 3. Take the "after" reports and record the scores in `ICA6.md`.
+
+## Visitor statistics (Google Analytics)
+
+The public pages can report visits to Google Analytics, so the client can see how many
+people use the site. It is **off until configured**, and visitors are asked first: nothing
+is loaded from Google until they click **Accept** on the cookie banner.
+
+1. The **client** signs in at [analytics.google.com](https://analytics.google.com) with
+   their Google account → **Start measuring** → create an account and a property
+   (e.g. "StartupSpark", time zone Sri Lanka) → platform **Web** → enter the site address.
+2. Copy the **Measurement ID** shown for the web stream (starts with `G-`).
+3. In the same web stream: **Enhanced measurement** ⚙ → **Page views** → *Show advanced
+   settings* → **untick "Page changes based on browser history events"** → Save. The site
+   sends its own page views with search terms and private codes removed; this setting
+   would otherwise send full page addresses as well.
+4. In Vercel → Environment Variables, add `NEXT_PUBLIC_GA_MEASUREMENT_ID` = that ID
+   (Production) → **Redeploy**. The value is built into the page, so a redeploy is needed.
+5. To give someone else read access: Analytics → **Admin → Property access management →
+   +** → their email → role **Viewer**.
+
+What is and isn't measured:
+
+- Only public pages (home, marketplace, categories, products, businesses, gallery, about,
+  cart, privacy). Never the admin or entrepreneur portals, checkout, order confirmation
+  or password reset pages.
+- Page addresses without anything after `?`, so search terms and order codes are never sent.
+- Visitors can change their choice on `/privacy`, which is linked from the banner and the
+  footer.
+- Numbers appear under **Reports → Realtime** within a minute and in the other reports
+  within a day.
 
 ## Limits to know
 

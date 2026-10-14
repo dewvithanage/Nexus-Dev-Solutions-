@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/lib/cart-context";
+import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +28,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             the cart — the cart itself lives in localStorage since
             customers don't have accounts (see architecture doc, Risk 1). */}
         <CartProvider>{children}</CartProvider>
+        {/* Visitor statistics for the public pages, after consent only. */}
+        <GoogleAnalytics />
       </body>
     </html>
   );
