@@ -13,9 +13,14 @@ export default function OrderFormPage() {
   const router = useRouter();
   const { items, clearBusinessItems } = useCart();
 
-  const businessItems = items.filter((item) => item.businessId === params.businessId);
+  const businessItems = items.filter(
+    (item) => item.businessId === params.businessId
+  );
   const businessName = businessItems[0]?.businessName ?? "this business";
-  const totalDue = businessItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalDue = businessItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
   const [buyerName, setBuyerName] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
@@ -28,7 +33,11 @@ export default function OrderFormPage() {
     event.preventDefault();
     setError("");
 
-    if (!buyerName || !buyerPhone || !deliveryLocation) {
+    if (
+      !buyerName.trim() ||
+      !buyerPhone.trim() ||
+      !deliveryLocation.trim()
+    ) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -41,18 +50,15 @@ export default function OrderFormPage() {
     try {
       setLoading(true);
 
-      // Order is saved to the database FIRST, before anything about
-      // WhatsApp happens — see Risk 5 in the architecture doc. This way
-      // the entrepreneur sees the order in their dashboard even if the
-      // buyer never actually sends the WhatsApp message.
+      // Save the order to the database before the WhatsApp confirmation.
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessId: params.businessId,
-          buyerName,
-          buyerPhone,
-          deliveryLocation,
+          buyerName: buyerName.trim(),
+          buyerPhone: buyerPhone.trim(),
+          deliveryLocation: deliveryLocation.trim(),
           messageToEntrepreneur,
           items: businessItems.map((item) => ({
             productId: item.productId,
@@ -69,9 +75,11 @@ export default function OrderFormPage() {
       }
 
       clearBusinessItems(params.businessId);
-      // The token proves this browser placed the order; the confirmation
-      // page can't be opened with the order id alone.
-      router.push(`/order-confirmation/${data.orderId}?token=${data.accessToken}`);
+
+      // The token proves this browser placed the order.
+      router.push(
+        `/order-confirmation/${data.orderId}?token=${data.accessToken}`
+      );
     } catch (error) {
       console.error("Place order error:", error);
       setError("Something went wrong. Please try again.");
@@ -87,15 +95,28 @@ export default function OrderFormPage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
           <div className="rounded-xl border border-slate-200 bg-white p-6">
-            <h1 className="text-xl font-bold text-slate-900">Contact & Delivery Details</h1>
+            <h1 className="text-xl font-bold text-slate-900">
+              Contact &amp; Delivery Details
+            </h1>
             <p className="mt-1 text-xs text-slate-500">
-              Direct WhatsApp connection details. The student entrepreneur will verify details instantly.
+              Direct WhatsApp connection details. The student entrepreneur will
+              verify details instantly.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">Full Name</label>
+                <label
+                  htmlFor="buyerName"
+                  className="mb-1.5 block text-xs font-semibold text-slate-700"
+                >
+                  Full Name
+                </label>
                 <input
+                  id="buyerName"
+                  name="buyerName"
+                  type="text"
+                  autoComplete="name"
+                  required
                   value={buyerName}
                   onChange={(event) => setBuyerName(event.target.value)}
                   className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
@@ -103,10 +124,18 @@ export default function OrderFormPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label
+                  htmlFor="buyerPhone"
+                  className="mb-1.5 block text-xs font-semibold text-slate-700"
+                >
                   Contact Number (WhatsApp Enabled)
                 </label>
                 <input
+                  id="buyerPhone"
+                  name="buyerPhone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
                   value={buyerPhone}
                   onChange={(event) => setBuyerPhone(event.target.value)}
                   placeholder="+94 77 123 4567"
@@ -115,10 +144,16 @@ export default function OrderFormPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label
+                  htmlFor="deliveryLocation"
+                  className="mb-1.5 block text-xs font-semibold text-slate-700"
+                >
                   On-Campus Delivery / Handoff Location
                 </label>
                 <textarea
+                  id="deliveryLocation"
+                  name="deliveryLocation"
+                  required
                   value={deliveryLocation}
                   onChange={(event) => setDeliveryLocation(event.target.value)}
                   placeholder="e.g. Main Library entrance, Thursday afternoon"
@@ -127,43 +162,62 @@ export default function OrderFormPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slate-700">
+                <label
+                  htmlFor="messageToEntrepreneur"
+                  className="mb-1.5 block text-xs font-semibold text-slate-700"
+                >
                   Message to Student Entrepreneur
                 </label>
                 <input
+                  id="messageToEntrepreneur"
+                  name="messageToEntrepreneur"
+                  type="text"
                   value={messageToEntrepreneur}
-                  onChange={(event) => setMessageToEntrepreneur(event.target.value)}
+                  onChange={(event) =>
+                    setMessageToEntrepreneur(event.target.value)
+                  }
                   placeholder="Any special requests?"
                   className="w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-blue-600"
                 />
               </div>
 
               {error && (
-                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>
+                <div
+                  role="alert"
+                  className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-600"
+                >
+                  {error}
+                </div>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-md bg-green-500 py-3 text-sm font-bold text-white hover:bg-green-600 disabled:opacity-60"
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-green-500 py-3 text-sm font-bold text-white hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <MessageCircle size={16} />
                 {loading ? "Placing order..." : "Send Order via WhatsApp"}
               </button>
+
               <p className="text-center text-[11px] text-slate-400">
-                Your order details will be sent to the entrepreneur via WhatsApp for confirmation.
+                Your order details will be sent to the entrepreneur via
+                WhatsApp for confirmation.
               </p>
             </form>
           </div>
 
           <div className="h-fit rounded-xl border border-slate-200 bg-white p-5">
-            <h2 className="text-sm font-bold text-slate-900">Your Selection</h2>
+            <h2 className="text-sm font-bold text-slate-900">
+              Your Selection
+            </h2>
             <p className="mt-1 text-xs text-slate-500">{businessName}</p>
 
             <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
               {businessItems.map((item) => (
                 <div key={item.productId} className="flex justify-between text-xs">
-                  <span className="text-slate-600">{item.name} (x{item.quantity})</span>
+                  <span className="text-slate-600">
+                    {item.name} (x{item.quantity})
+                  </span>
                   <span className="font-medium text-slate-800">
                     Rs.{(item.price * item.quantity).toFixed(2)}
                   </span>
@@ -173,7 +227,9 @@ export default function OrderFormPage() {
 
             <div className="mt-4 flex justify-between border-t border-slate-100 pt-4 text-sm">
               <span className="font-bold text-slate-900">Total Due</span>
-              <span className="font-bold text-blue-600">Rs.{totalDue.toFixed(2)}</span>
+              <span className="font-bold text-blue-600">
+                Rs.{totalDue.toFixed(2)}
+              </span>
             </div>
           </div>
         </div>
