@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { Package, Clock3, CircleCheck, DollarSign, TrendingUp } from "lucide-react";
 
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
 import RecentOrders from "@/components/entrepreneur/dashboard/RecentOrders";
 import Notifications from "@/components/entrepreneur/dashboard/Notifications";
+import { SectionSkeleton } from "@/components/entrepreneur/PageStates";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/session";
+import { requireEntrepreneurPage } from "@/lib/entrepreneur-data";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -19,14 +20,13 @@ function formatRupees(amount: number) {
 // straight from the database. Every number on this page is calculated from
 // their own products and orders. Only approved entrepreneurs get here
 // (see ../layout.tsx).
+//
+// Rendered on every request (it reads the session cookie), so the figures
+// are always current. Recent Orders and Notifications stream in through
+// Suspense, so the stat cards don't wait for them.
 export default async function EntrepreneurDashboardPage() {
-  const user = await getCurrentUser();
-  const profile = user?.entrepreneurProfile;
-  const businessId = profile?.business?.id;
-
-  if (!user || user.role !== "ENTREPRENEUR" || !profile || !businessId) {
-    redirect("/entrepreneur/login");
-  }
+  const { user, business, sidebar } = await requireEntrepreneurPage();
+  const businessId = business.id;
 
   const now = Date.now();
   const startOfThisWeek = new Date(now - WEEK_MS);
@@ -64,7 +64,7 @@ export default async function EntrepreneurDashboardPage() {
 
   return (
     <div className="flex min-h-screen flex-col lg:flex-row bg-[#f6f8fb]">
-      <Sidebar />
+      <Sidebar entrepreneur={sidebar} />
 
       <div className="min-w-0 flex-1">
         <DashboardHeader />
@@ -153,8 +153,12 @@ export default async function EntrepreneurDashboardPage() {
           </section>
 
           <section className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[3fr_1fr]">
-            <RecentOrders />
-            <Notifications userId={user.id} />
+            <Suspense fallback={<SectionSkeleton title="Recent Orders" rows={5} />}>
+              <RecentOrders businessId={businessId} />
+            </Suspense>
+            <Suspense fallback={<SectionSkeleton title="Recent Notifications" rows={3} />}>
+              <Notifications userId={user.id} />
+            </Suspense>
           </section>
         </main>
       </div>
