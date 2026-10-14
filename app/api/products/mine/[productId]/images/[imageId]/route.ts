@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unlink } from "fs/promises";
-import path from "path";
-
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireEntrepreneur } from "@/lib/api-auth";
 import { idField } from "@/lib/request-validation";
+import { deleteUploadedFile } from "@/lib/upload";
 
 // Removes one image from a product the signed-in entrepreneur owns. Used by
 // the "x" on an image in Edit Product, which until now only hid the image
@@ -34,12 +32,10 @@ export async function DELETE(
 
     await prisma.productImage.delete({ where: { id: image.id } });
 
-    // Best effort: also delete the file. Only files saved by lib/upload.ts
-    // (/uploads/products/<uuid>.<ext>) are touched, so an unusual url in the
-    // database can never point this at another file on the server.
-    if (/^\/uploads\/products\/[0-9a-f-]{36}\.(jpg|png|webp)$/.test(image.url)) {
-      await unlink(path.join(process.cwd(), "public", image.url)).catch(() => {});
-    }
+    // Best effort: also delete the file (on disk or in Vercel Blob). Only
+    // files lib/upload.ts saved for products are touched, so an unusual url
+    // in the database can never point this at another file.
+    await deleteUploadedFile(image.url, "products");
 
     return NextResponse.json({ message: "Image removed." });
   } catch (error) {

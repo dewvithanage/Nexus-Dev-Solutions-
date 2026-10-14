@@ -7,6 +7,7 @@ import { Info, Image as ImageIcon, Plus } from "lucide-react";
 import Sidebar from "@/components/entrepreneur/dashboard/Sidebar";
 import DashboardHeader from "@/components/entrepreneur/dashboard/DashboardHeader";
 import type { SidebarEntrepreneur } from "@/lib/entrepreneur-data";
+import { uploadProductImages } from "@/lib/upload-product-images";
 
 type Category = {
   id: string;
@@ -146,20 +147,13 @@ export default function AddProductForm({
       // real id — this two-step order is necessary since the image
       // upload endpoint needs a product to attach images to.
       if (selectedFiles.length > 0 && data.product?.id) {
-        const imageFormData = new FormData();
-        selectedFiles.forEach((file) => imageFormData.append("images", file));
+        const upload = await uploadProductImages(data.product.id, selectedFiles);
 
-        const imageResponse = await fetch(`/api/products/${data.product.id}/images`, {
-          method: "POST",
-          body: imageFormData,
-        });
-
-        if (!imageResponse.ok) {
+        if (!upload.ok) {
           // The product itself was created; tell the person why the images
           // weren't added so they can add them from Edit Product.
-          const imageData = await imageResponse.json().catch(() => ({}));
           alert(
-            `Product submitted, but the images couldn't be added: ${imageData.message || "upload failed"} You can add them from Edit Product.`
+            `Product submitted, but the images couldn't be added: ${upload.message} You can add them from Edit Product.`
           );
           router.push("/entrepreneur/products");
           router.refresh();
