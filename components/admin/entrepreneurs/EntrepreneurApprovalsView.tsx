@@ -61,7 +61,7 @@ export default function EntrepreneurApprovalsView({
             ))}
           </div>
 
-          <p className="mb-3 text-xs text-slate-500" aria-live="polite">
+          <p className="mb-3 text-xs text-slate-600" aria-live="polite">
             {isPending ? "Updating..." : `Showing ${entrepreneurs.length} of ${pagination.totalCount}`}
           </p>
 
@@ -93,7 +93,7 @@ export default function EntrepreneurApprovalsView({
                 <tbody className="divide-y divide-slate-100">
                   {entrepreneurs.map((entrepreneur) => (
                     <tr key={entrepreneur.id} className="text-[12px] text-slate-600">
-                      <td className="px-5 py-4 text-slate-400">{formatDate(entrepreneur.appliedAt)}</td>
+                      <td className="px-5 py-4 text-slate-500">{formatDate(entrepreneur.appliedAt)}</td>
                       <td className="px-5 py-4 font-semibold text-slate-800">{entrepreneur.fullName}</td>
                       <td className="px-5 py-4">{entrepreneur.university || "—"}</td>
                       <td className="px-5 py-4 font-medium text-blue-600">{entrepreneur.businessName}</td>

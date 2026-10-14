@@ -1,6 +1,6 @@
 const styles: Record<string, string> = {
-  APPROVED: "bg-emerald-100 text-emerald-600",
-  REJECTED: "bg-red-100 text-red-600",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  REJECTED: "bg-red-100 text-red-800",
 };
 
 // Approval status pill used on the entrepreneur and product admin pages.
@@ -17,7 +17,7 @@ export default function StatusBadge({
 }) {
   return (
     <span
-      className={`rounded-full px-3 py-1 text-[9px] font-semibold ${styles[status] ?? "bg-amber-100 text-amber-600"} ${className}`}
+      className={`rounded-full px-3 py-1 text-[9px] font-semibold ${styles[status] ?? "bg-amber-100 text-amber-800"} ${className}`}
     >
       {label ?? status}
     </span>

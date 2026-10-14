@@ -69,7 +69,7 @@ export default async function EntrepreneurDetailsPage({ params }: Props) {
                 <Detail label="Student ID" value={entrepreneur.studentId} />
                 {entrepreneur.rejectionReason && (
                   <div>
-                    <dt className="text-slate-400">Rejection Reason</dt>
+                    <dt className="text-slate-500">Rejection Reason</dt>
                     <dd className="font-medium text-red-600">{entrepreneur.rejectionReason}</dd>
                   </div>
                 )}
@@ -82,12 +82,12 @@ export default async function EntrepreneurDetailsPage({ params }: Props) {
                 <h3 className="text-sm font-bold text-slate-900">Proposed Venture Overview</h3>
 
                 <div className="mt-4">
-                  <p className="text-xs text-slate-400">Venture / Brand Name</p>
+                  <p className="text-xs text-slate-500">Venture / Brand Name</p>
                   <p className="text-base font-bold text-blue-600">{entrepreneur.business?.businessName || "—"}</p>
                 </div>
 
                 <div className="mt-4">
-                  <p className="text-xs text-slate-400">Venture Description</p>
+                  <p className="text-xs text-slate-500">Venture Description</p>
                   <p className="text-sm text-slate-700">
                     {entrepreneur.business?.description || "No description provided yet."}
                   </p>
@@ -109,13 +109,13 @@ export default async function EntrepreneurDetailsPage({ params }: Props) {
                         >
                           {product.name}
                         </Link>
-                        <span className="text-slate-400">{product.category.name}</span>
+                        <span className="text-slate-500">{product.category.name}</span>
                       </li>
                     ))}
                   </ul>
                 )}
                 {productTotal > products.length && (
-                  <p className="mt-2 text-[11px] text-slate-400">
+                  <p className="mt-2 text-[11px] text-slate-500">
                     Showing the latest {products.length} of {productTotal}.
                   </p>
                 )}
@@ -138,7 +138,7 @@ export default async function EntrepreneurDetailsPage({ params }: Props) {
 function Detail({ label, value, breakAll }: { label: string; value: string | null; breakAll?: boolean }) {
   return (
     <div>
-      <dt className="text-slate-400">{label}</dt>
+      <dt className="text-slate-500">{label}</dt>
       <dd className={`font-medium text-slate-800 ${breakAll ? "break-all" : ""}`}>{value || "—"}</dd>
     </div>
   );

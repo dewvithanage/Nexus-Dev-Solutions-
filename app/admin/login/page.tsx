@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
 
         <AdminLoginForm />
 
-        <p className="mt-5 text-center text-[11px] text-slate-400">
+        <p className="mt-5 text-center text-[11px] text-slate-500">
           Unauthorized access is strictly monitored and logged.
         </p>
       </section>

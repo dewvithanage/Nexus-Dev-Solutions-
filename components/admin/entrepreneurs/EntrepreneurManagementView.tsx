@@ -86,7 +86,7 @@ export default function EntrepreneurManagementView({
               onClick={() => setQuery({ tab: null, page: null })}
               aria-current={tab === "ACTIVE" ? "page" : undefined}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                tab === "ACTIVE" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-500 hover:text-slate-700"
+                tab === "ACTIVE" ? "border-b-2 border-blue-600 text-blue-600" : "text-slate-600 hover:text-slate-800"
               }`}
             >
               Active Entrepreneurs
@@ -95,7 +95,7 @@ export default function EntrepreneurManagementView({
               onClick={() => setQuery({ tab: "REJECTED", page: null })}
               aria-current={tab === "REJECTED" ? "page" : undefined}
               className={`px-4 py-2.5 text-xs font-semibold ${
-                tab === "REJECTED" ? "border-b-2 border-red-600 text-red-600" : "text-slate-500 hover:text-slate-700"
+                tab === "REJECTED" ? "border-b-2 border-red-600 text-red-600" : "text-slate-600 hover:text-slate-800"
               }`}
             >
               Rejected
@@ -103,7 +103,7 @@ export default function EntrepreneurManagementView({
           </div>
 
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-slate-500" aria-live="polite">
+            <p className="text-xs text-slate-600" aria-live="polite">
               {isPending ? "Updating..." : `Showing ${entrepreneurs.length} of ${pagination.totalCount}`}
             </p>
 
@@ -171,7 +171,7 @@ export default function EntrepreneurManagementView({
                       <td className="px-5 py-4">
                         <StatusBadge status={entrepreneur.status} />
                       </td>
-                      <td className="px-5 py-4 text-slate-400">{formatDate(entrepreneur.appliedAt)}</td>
+                      <td className="px-5 py-4 text-slate-500">{formatDate(entrepreneur.appliedAt)}</td>
                       <td className="px-5 py-4">
                         <button
                           onClick={() => handleDelete(entrepreneur)}

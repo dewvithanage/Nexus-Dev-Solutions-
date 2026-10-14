@@ -80,7 +80,7 @@ export default function ProductApprovalsView({ status, data }: { status: Product
             </p>
           )}
 
-          <p className="mb-3 text-xs text-slate-500" aria-live="polite">
+          <p className="mb-3 text-xs text-slate-600" aria-live="polite">
             {isPending ? "Updating..." : `Showing ${products.length} of ${pagination.totalCount}`}
           </p>
 
@@ -122,7 +122,7 @@ export default function ProductApprovalsView({ status, data }: { status: Product
                       </td>
                       <td className="px-5 py-3 font-semibold text-blue-600">Rs.{product.price.toFixed(2)}</td>
                       <td className="px-5 py-3">{product.category}</td>
-                      <td className="px-5 py-3 text-slate-400">{formatDate(product.createdAt)}</td>
+                      <td className="px-5 py-3 text-slate-500">{formatDate(product.createdAt)}</td>
                       <td className="px-5 py-3">
                         <div className="flex gap-1.5">
                           <Link

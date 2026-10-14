@@ -99,15 +99,15 @@ export default async function AdminProductDetailsPage({ params }: Props) {
                 <h3 className="text-sm font-bold text-slate-900">Product Details & Specifications</h3>
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-xs text-slate-400">Venture Item Name</p>
+                    <p className="text-xs text-slate-500">Venture Item Name</p>
                     <p className="text-sm font-semibold text-slate-800">{product.name}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Proposed Price</p>
+                    <p className="text-xs text-slate-500">Proposed Price</p>
                     <p className="text-sm font-bold text-blue-600">Rs.{product.price.toFixed(2)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Category</p>
+                    <p className="text-xs text-slate-500">Category</p>
                     <CategorySelect
                       productId={product.id}
                       currentCategoryId={product.category.id}
@@ -115,12 +115,12 @@ export default async function AdminProductDetailsPage({ params }: Props) {
                     />
                   </div>
                   <div>
-                    <p className="text-xs text-slate-400">Initial Inventory</p>
+                    <p className="text-xs text-slate-500">Initial Inventory</p>
                     <p className="text-sm font-semibold text-slate-800">{product.stockQuantity}</p>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <p className="text-xs text-slate-400">Product Description</p>
+                  <p className="text-xs text-slate-500">Product Description</p>
                   <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">{product.description}</p>
                 </div>
                 {product.rejectionReason && (
@@ -141,7 +141,7 @@ export default async function AdminProductDetailsPage({ params }: Props) {
                     <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
                     <div>
                       <p className="text-xs font-semibold text-slate-800">Initial Submission</p>
-                      <p className="text-[11px] text-slate-400">{formatDateTime(product.createdAt)}</p>
+                      <p className="text-[11px] text-slate-500">{formatDateTime(product.createdAt)}</p>
                     </div>
                   </li>
                   <li className="flex gap-3">
@@ -154,7 +154,7 @@ export default async function AdminProductDetailsPage({ params }: Props) {
                       <p className="text-xs font-semibold text-slate-800">
                         {product.reviewedAt ? "Reviewed" : "Pending Manual Review"}
                       </p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-500">
                         {product.reviewedAt ? formatDateTime(product.reviewedAt) : "Waiting for an admin"}
                       </p>
                     </div>
