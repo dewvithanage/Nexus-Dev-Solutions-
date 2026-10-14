@@ -1,0 +1,23 @@
+<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" fill="#FFF7ED"/>
+
+  <!-- Tote bag handles -->
+  <path d="M150 130 Q150 80 200 80 Q250 80 250 130" fill="none" stroke="#3F3F46" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Bag body -->
+  <path d="M110 140 L290 140 L270 320 Q270 335 255 335 L145 335 Q130 335 130 320 Z" fill="#FDF4E3" stroke="#D6D3D1" stroke-width="3"/>
+
+  <!-- Tie-dye swirl pattern -->
+  <circle cx="200" cy="230" r="70" fill="#FB923C" opacity="0.85"/>
+  <circle cx="200" cy="230" r="52" fill="#F472B6" opacity="0.85"/>
+  <circle cx="200" cy="230" r="34" fill="#FACC15" opacity="0.9"/>
+  <circle cx="200" cy="230" r="16" fill="#FFFFFF" opacity="0.95"/>
+
+  <!-- Spiral accent lines -->
+  <path d="M200 178 Q235 195 235 230 Q235 265 200 282 Q165 265 165 230 Q165 195 200 178"
+        fill="none" stroke="#EA580C" stroke-width="2" opacity="0.5"/>
+
+  <!-- Stitching detail on bag edges -->
+  <line x1="130" y1="150" x2="120" y2="325" stroke="#D6D3D1" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="270" y1="150" x2="280" y2="325" stroke="#D6D3D1" stroke-width="1.5" stroke-dasharray="4 4"/>
+</svg>

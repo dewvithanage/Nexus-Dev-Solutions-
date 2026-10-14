@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* FIX: this app has no actual dark theme designed anywhere — removed
+   the leftover Next.js default dark-mode media query, which flipped
+   --foreground to near-white (#ededed) whenever the user's OS was set
+   to dark mode. Any text relying on inherited body color (rather than
+   an explicit Tailwind color class) — like the quantity selector
+   buttons on Product Details and Cart — became nearly invisible
+   against the white cards for anyone using dark mode at the OS level.
+   Colors now always stay in light mode regardless of OS preference. */
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Same reasoning as above — form fields need an explicit light
+   background/dark text regardless of OS dark-mode preference, since
+   this app has no dark theme built for them either. */
+input, textarea, select {
+  background-color: white;
+  color: #0f172a;
+}
