@@ -3,7 +3,6 @@
 import Link from "next/link";
 import ResponsiveSidebar from "@/components/dashboard/ResponsiveSidebar";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   UserRound,
@@ -15,6 +14,8 @@ import {
   ExternalLink,
   Clock3,
 } from "lucide-react";
+
+import type { SidebarEntrepreneur } from "@/lib/entrepreneur-data";
 
 const menuItems = [
   { name: "Dashboard", href: "/entrepreneur/dashboard", icon: LayoutDashboard },
@@ -32,38 +33,21 @@ const pendingMenuItems = [
   { name: "Business Profile", href: "/entrepreneur/profile", icon: UserRound },
 ];
 
-type LoggedInEntrepreneur = {
-  fullName: string;
-  businessName: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED" | null;
-};
-
-export default function Sidebar() {
+// The signed-in entrepreneur comes from the page, which read it from the
+// server-side session while rendering (lib/entrepreneur-data.ts). This used
+// to be fetched from /api/auth/me in the browser after every page load,
+// which cost an extra request and showed "Entrepreneur" until it arrived.
+// Optional only so the loading skeleton can show the sidebar shell.
+export default function Sidebar({ entrepreneur = null }: { entrepreneur?: SidebarEntrepreneur | null }) {
   const pathname = usePathname();
   const router = useRouter();
-
-  const [entrepreneur, setEntrepreneur] = useState<LoggedInEntrepreneur | null>(null);
-
-  // Load the logged-in entrepreneur from the session (via the API),
-  // not from localStorage — the login cookie is httpOnly so the browser
-  // can't read it directly with JavaScript, which is what makes it safer.
-  useEffect(() => {
-    async function loadCurrentUser() {
-      try {
-        const response = await fetch("/api/auth/me");
-        const data = await response.json();
-        setEntrepreneur(data.user);
-      } catch (error) {
-        console.error("Unable to load entrepreneur details:", error);
-      }
-    }
-
-    loadCurrentUser();
-  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/entrepreneur/login");
+    // Drops the browser's cached copies of the private pages, so Back
+    // can't show them after signing out.
+    router.refresh();
   }
 
   return (
