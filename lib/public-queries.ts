@@ -42,6 +42,7 @@ export type HomeCategory = {
   id: string;
   name: string;
   slug: string;
+  icon: string | null;
   productCount: number;
 };
 
@@ -56,10 +57,11 @@ export const getHomeCategories = unstable_cache(
       })
     );
 
-    return categories.map((category) => ({
+return categories.map((category) => ({
   id: category.id,
   name: category.name,
   slug: category.slug,
+  icon: null,
   productCount: category._count.products,
 }));
   },
@@ -256,5 +258,63 @@ export const getSearchProducts = unstable_cache(
   {
     revalidate: 60,
     tags: [CACHE_TAGS.products],
+  }
+);
+export const getCategoryWithProducts = unstable_cache(
+  async (slug: string) => {
+    const category = await prisma.category.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+
+    if (!category) {
+      return null;
+    }
+
+    const products = await prisma.product.findMany({
+      where: {
+        ...publicProductWhere,
+        categoryId: category.id,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 48,
+      include: {
+        images: {
+          orderBy: { sortOrder: "asc" },
+          take: 1,
+        },
+        business: {
+          select: { businessName: true },
+        },
+      },
+    });
+
+    const mappedProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.images[0]?.url ?? null,
+      businessName: product.business.businessName,
+      averageRating:
+        product.ratingCount > 0
+          ? Number(product.ratingAverage.toFixed(1))
+          : null,
+      reviewCount: product.ratingCount,
+      createdAt: product.createdAt,
+    }));
+
+    return {
+      category,
+      products: toPlain<ProductCardData[]>(mappedProducts),
+    };
+  },
+  ["category-products"],
+  {
+    revalidate: 60,
+    tags: [CACHE_TAGS.categories, CACHE_TAGS.products],
   }
 );
