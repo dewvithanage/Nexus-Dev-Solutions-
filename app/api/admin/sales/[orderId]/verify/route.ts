@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { SALES_TOTALS_TAG } from "@/lib/admin/cache-tags";
 import { idField } from "@/lib/request-validation";
 
 // "Confirm & Release" in the Figma — marks the order as VERIFIED, which is
@@ -60,6 +62,9 @@ export async function PATCH(
       });
       return result;
     });
+
+    // Reports and Rankings count verified sales; show the change straight away.
+    revalidateTag(SALES_TOTALS_TAG);
 
     return NextResponse.json({ message: "Sale verified and escrow released.", order: updated });
   } catch (error) {

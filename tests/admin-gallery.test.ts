@@ -2,6 +2,7 @@ import { existsSync, rmSync } from "fs";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { GET, POST } from "@/app/api/admin/gallery/route";
+import { DELETE } from "@/app/api/admin/gallery/[id]/route";
 import { prisma } from "@/lib/prisma";
 import {
   createAdmin,
@@ -9,6 +10,7 @@ import {
   formRequest,
   jsonRequest,
   resetDatabase,
+  routeParams,
   signInAs,
   tinyPngFile,
 } from "./helpers";
@@ -16,6 +18,7 @@ import {
 // Security tests for the admin gallery endpoints:
 //   GET  /api/admin/gallery  (private: admin-only list)
 //   POST /api/admin/gallery  (changes data: uploads an image)
+//   DELETE /api/admin/gallery/[id]  (changes data: removes an image)
 
 const uploadedFiles: string[] = [];
 
@@ -144,5 +147,49 @@ describe("GET /api/admin/gallery", () => {
     const response = await GET(jsonRequest("/api/admin/gallery?pageSize=-5", "GET"));
 
     expect(response.status).toBe(400);
+  });
+});
+
+describe("DELETE /api/admin/gallery/[id]", () => {
+  async function seedItem() {
+    const admin = await createAdmin();
+    const item = await prisma.galleryItem.create({
+      data: { imageUrl: "/uploads/gallery/x.png", caption: "Seeded", uploadedById: admin.id },
+    });
+    return { admin, item };
+  }
+
+  const remove = (id: string) => DELETE(jsonRequest(`/api/admin/gallery/${id}`, "DELETE"), routeParams({ id }));
+
+  it("rejects a request with no session with 401 and keeps the item", async () => {
+    const { item } = await seedItem();
+
+    expect((await remove(item.id)).status).toBe(401);
+    expect(await prisma.galleryItem.count()).toBe(1);
+  });
+
+  it("rejects a signed-in entrepreneur with 403 and keeps the item", async () => {
+    const { item } = await seedItem();
+    await signInAs(await createEntrepreneur());
+
+    expect((await remove(item.id)).status).toBe(403);
+    expect(await prisma.galleryItem.count()).toBe(1);
+  });
+
+  it("lets any admin remove an item, including one another admin uploaded", async () => {
+    const { item } = await seedItem();
+    await signInAs(await createAdmin());
+
+    expect((await remove(item.id)).status).toBe(200);
+    expect(await prisma.galleryItem.count()).toBe(0);
+  });
+
+  it("answers 404 for an unknown or malformed id and deletes nothing", async () => {
+    await seedItem();
+    await signInAs(await createAdmin());
+
+    expect((await remove("does-not-exist")).status).toBe(404);
+    expect((await remove("../../uploads")).status).toBe(404);
+    expect(await prisma.galleryItem.count()).toBe(1);
   });
 });

@@ -23,10 +23,16 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
+// The Next.js Data Cache only exists inside a running Next.js server.
+// In tests, cached functions just run every time, and revalidation calls
+// are recorded so tests can check that a change clears the right cache.
+vi.mock("next/cache", () => ({
+  unstable_cache: <T extends (...args: never[]) => unknown>(fn: T) => fn,
+  revalidateTag: vi.fn(),
+  revalidatePath: vi.fn(),
+}));
+
 afterAll(async () => {
   const { prisma } = await import("@/lib/prisma");
   await prisma.$disconnect();
 });
-
-// Direct route-handler tests do not have Next's request cache context.
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
