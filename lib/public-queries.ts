@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { publicProductWhere } from "@/lib/public-visibility";
@@ -98,4 +99,106 @@ export const getFeaturedProducts = unstable_cache(
   },
   ["home-featured-products"],
   { revalidate: 60, tags: [CACHE_TAGS.products] }
+);
+
+export type MarketplaceSort =
+  | "newest"
+  | "price_asc"
+  | "price_desc"
+  | "rating";
+
+export type MarketplacePagination = {
+  currentPage: number;
+  totalPages: number;
+  totalCount: number;
+  pageSize: number;
+};
+
+const MARKETPLACE_PAGE_SIZE = 4;
+
+// Fetch the initial Marketplace products directly from the database.
+// The arguments are included in the cache key, so different filters
+// and pages have separate cached results.
+export const getMarketplaceProducts = unstable_cache(
+  async (
+    category: string,
+    maxPrice: number,
+    sort: MarketplaceSort,
+    page: number
+  ) => {
+    const where: Prisma.ProductWhereInput = {
+      ...publicProductWhere,
+    };
+
+    if (category) {
+      where.category = { slug: category };
+    }
+
+    if (maxPrice < 5000) {
+      where.price = { lte: maxPrice };
+    }
+
+    const orderBy: Prisma.ProductOrderByWithRelationInput[] =
+      sort === "price_asc"
+        ? [{ price: "asc" }]
+        : sort === "price_desc"
+          ? [{ price: "desc" }]
+          : sort === "rating"
+            ? [
+                { ratingAverage: "desc" },
+                { ratingCount: "desc" },
+              ]
+            : [{ createdAt: "desc" }];
+
+    const [totalCount, products] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * MARKETPLACE_PAGE_SIZE,
+        take: MARKETPLACE_PAGE_SIZE,
+        include: {
+          images: {
+            orderBy: { sortOrder: "asc" },
+            take: 1,
+          },
+          business: {
+            select: { businessName: true },
+          },
+        },
+      }),
+    ]);
+
+    const mappedProducts = products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.images[0]?.url ?? null,
+      businessName: product.business.businessName,
+      averageRating:
+        product.ratingCount > 0
+          ? Number(product.ratingAverage.toFixed(1))
+          : null,
+      reviewCount: product.ratingCount,
+      createdAt: product.createdAt,
+    }));
+
+    return {
+      products: toPlain(mappedProducts),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.max(
+          1,
+          Math.ceil(totalCount / MARKETPLACE_PAGE_SIZE)
+        ),
+        totalCount,
+        pageSize: MARKETPLACE_PAGE_SIZE,
+      },
+    };
+  },
+  ["marketplace-products"],
+  {
+    revalidate: 60,
+    tags: [CACHE_TAGS.products],
+  }
 );
