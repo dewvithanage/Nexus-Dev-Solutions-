@@ -15,10 +15,12 @@ local development and the tests don't change.
 The Hobby plan is free with no time limit. The "14-day trial" Vercel offers is for the
 paid Pro plan; choose **Hobby** and don't start a team.
 
-1. The repo owner (**dewvithanage**) signs in at [vercel.com](https://vercel.com) with
-   GitHub. On Hobby, the project must be imported by an account that owns the repo, so
-   the owner does this step.
-2. **Add New → Project** → import `Nexus-Dev-Solutions-`.
+On Hobby, Vercel can only connect to repos owned by your own GitHub account. The team
+repo belongs to **dewvithanage**, so the site is deployed from **Oshadhi's fork**:
+
+1. On GitHub, open `dewvithanage/Nexus-Dev-Solutions-` → **Fork** → create the fork in
+   your own account. Sign in at [vercel.com](https://vercel.com) with that GitHub account.
+2. **Add New → Project** → import **your fork** of `Nexus-Dev-Solutions-`.
 3. Framework: **Next.js** (detected). Leave the build settings as they are: `npm install`
    runs `prisma generate`, then `next build` runs.
 4. **Production branch:** Settings → Git → set it to the branch you deploy from (`main`, or
@@ -67,8 +69,15 @@ already exists there.
 
 ## 6. Deploy
 
-Click **Deploy** (or push to the production branch). Each later push redeploys
-automatically.
+Click **Deploy**.
+
+**Updating the site:** after a PR is merged into the team repo, open the fork on GitHub
+and click **Sync fork** → **Update branch**. Vercel redeploys automatically.
+
+**No fork? Deploy from a laptop instead:** `npm i -g vercel`, `vercel login`,
+`vercel link`, then `vercel --prod` from an up-to-date checkout. Steps 2–5 still apply
+(set them in the Vercel dashboard). Nothing redeploys automatically: run `vercel --prod`
+after each merge.
 
 ## 7. Check the deployment
 
