@@ -17,39 +17,39 @@ const resetPasswordSchema = z
 
 export async function POST(request: NextRequest) {
   try {
-    // The new password follows the same rules as registration (8-72
-    // characters, at least one letter and one number). Without this, a reset
-    // link was a way around them.
+    // Apply the same stronger password policy as registration so reset
+    // cannot bypass validation.
     const parsed = await parseJsonBody(request, resetPasswordSchema);
     if (parsed.error) return parsed.error;
     const { token, newPassword } = parsed.data;
 
-    // The database holds only the hash of the token (lib/reset-token.ts).
-    const user = await prisma.user.findUnique({
-      where: { resetToken: hashResetToken(token) },
-      omit: { resetTokenExpiry: false },
-    });
+    const tokenHash = hashResetToken(token);
+    const invalidLink = () => NextResponse.json(
+      { code: "INVALID_RESET_LINK", message: "This reset link is invalid or has expired. Please request a new one." },
+      { status: 400 }
+    );
 
-    if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      return NextResponse.json(
-        { message: "This reset link is invalid or has expired. Please request a new one." },
-        { status: 400 }
-      );
-    }
+    // Reject invalid links before doing expensive password hashing.
+    const user = await prisma.user.findFirst({
+      where: { resetToken: tokenHash, resetTokenExpiry: { gt: new Date() } },
+      select: { id: true },
+    });
+    if (!user) return invalidLink();
 
     const passwordHash = await hashPassword(newPassword);
 
-    await prisma.user.update({
-      where: { id: user.id },
+    // Match and consume the token in one database operation. Concurrent
+    // requests, replaced links, or links expiring during hashing cannot win twice.
+    const updated = await prisma.user.updateMany({
+      where: { id: user.id, resetToken: tokenHash, resetTokenExpiry: { gt: new Date() } },
       data: {
         passwordHash,
         resetToken: null,
         resetTokenExpiry: null,
-        // A new password signs out every existing session, in case the
-        // reset was needed because someone else had access.
         sessionVersion: { increment: 1 },
       },
     });
+    if (updated.count !== 1) return invalidLink();
 
     return NextResponse.json({ message: "Password reset successfully. You can now log in." });
   } catch (error) {

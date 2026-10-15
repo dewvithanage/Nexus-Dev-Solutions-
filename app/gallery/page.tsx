@@ -1,35 +1,16 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import { getGalleryPage, pageNumber } from "@/lib/dewmi-page-data";
 
-type GalleryItem = {
-  id: string;
-  imageUrl: string;
-  caption: string | null;
-};
-
-export default function GalleryPage() {
-  const [items, setItems] = useState<GalleryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadGallery() {
-      try {
-        const response = await fetch("/api/gallery");
-        const data = await response.json();
-        if (response.ok) setItems(data.galleryItems);
-      } catch (error) {
-        console.error("Load gallery error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadGallery();
-  }, []);
-
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Gallery | StartupSpark" };
+export default async function GalleryPage({ searchParams }: { searchParams: Promise<{ page?: string | string[] }> }) {
+  const page = pageNumber((await searchParams).page);
+  const { items, totalPages } = await getGalleryPage(page);
+  if (page > 1 && page > totalPages) notFound();
   return (
     <div className="flex min-h-screen flex-col bg-[#F5F7FA]">
       <Navbar />
@@ -41,22 +22,24 @@ export default function GalleryPage() {
           products, events, and campus activities captured in action.
         </p>
 
-        {loading ? (
-          <p className="mt-8 text-sm text-slate-500">Loading gallery...</p>
-        ) : items.length === 0 ? (
+        {items.length === 0 ? (
           <div className="mt-8 rounded-xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500">
-            No gallery images yet. Once an admin uploads some (Admin Gallery
-            Management), they&apos;ll appear here.
+            No gallery images yet. Check back soon for updates from our community.
           </div>
         ) : (
           <div className="mt-8 columns-1 gap-4 sm:columns-2 lg:columns-3">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <div key={item.id} className="mb-4 break-inside-avoid overflow-hidden rounded-xl">
-                <img src={item.imageUrl} alt={item.caption || "Gallery image"} className="w-full object-cover" />
+                <Image priority={page === 1 && index === 0} src={item.imageUrl} alt={item.caption || "Gallery image"} width={1200} height={900} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="h-auto w-full object-cover" />
               </div>
             ))}
           </div>
         )}
+        {totalPages > 1 && <nav aria-label="Gallery pages" className="mt-8 flex justify-center gap-6 text-sm text-blue-600">
+          {page > 1 && <Link href={`/gallery?page=${page - 1}`}>Previous</Link>}
+          <span className="text-slate-600">Page {page} of {totalPages}</span>
+          {page < totalPages && <Link href={`/gallery?page=${page + 1}`}>Next</Link>}
+        </nav>}
       </main>
 
       <Footer />

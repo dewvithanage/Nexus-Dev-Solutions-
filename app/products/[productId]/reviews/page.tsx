@@ -1,54 +1,22 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Star } from "lucide-react";
-
+import { notFound } from "next/navigation";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
+import { getReviewProduct, getReviewsPage, pageNumber } from "@/lib/dewmi-page-data";
 
-type Review = {
-  id: string;
-  reviewerName: string;
-  rating: number;
-  comment: string;
-  createdAt: string;
-};
-
-type ReviewSummary = {
-  totalReviews: number;
-  averageRating: number;
-  breakdown: Record<string, number>;
-};
-
-export default function ProductReviewsPage() {
-  const params = useParams<{ productId: string }>();
-
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [summary, setSummary] = useState<ReviewSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadReviews() {
-      try {
-        const response = await fetch(`/api/reviews/product/${params.productId}`);
-        const data = await response.json();
-
-        if (response.ok) {
-          setReviews(data.reviews);
-          setSummary(data.summary);
-        }
-      } catch (error) {
-        console.error("Load reviews error:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadReviews();
-  }, [params.productId]);
-
+export const dynamic = "force-dynamic";
+type Props = { params: Promise<{ productId: string }>; searchParams: Promise<{ page?: string | string[] }> };
+export async function generateMetadata({ params }: Props) {
+  const product = await getReviewProduct((await params).productId);
+  return { title: product ? `${product.name} Reviews | StartupSpark` : "Reviews | StartupSpark" };
+}
+export default async function ProductReviewsPage({ params, searchParams }: Props) {
+  const [{ productId }, query] = await Promise.all([params, searchParams]);
+  const page = pageNumber(query.page);
+  const data = await getReviewsPage(productId, page);
+  if (!data || (page > 1 && page > data.totalPages)) notFound();
+  const { reviews, summary, totalPages } = data;
   return (
     <div className="flex min-h-screen flex-col bg-[#F5F7FA]">
       <Navbar />
@@ -60,16 +28,13 @@ export default function ProductReviewsPage() {
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-900">Customer Reviews</h1>
           <Link
-            href={`/products/${params.productId}/review`}
+            href={`/products/${productId}/review`}
             className="rounded-md bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
           >
             Write a Review
           </Link>
         </div>
 
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading reviews...</p>
-        ) : (
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
             {/* Rating summary card */}
             <div className="h-fit rounded-xl border border-slate-200 bg-white p-6 text-center shadow-sm">
@@ -119,7 +84,7 @@ export default function ProductReviewsPage() {
                     <div className="flex items-start justify-between">
                       <p className="text-sm font-semibold text-slate-900">{review.reviewerName}</p>
                       <p className="text-xs text-slate-400">
-                        {new Date(review.createdAt).toLocaleDateString()}
+                        {review.createdAt.toLocaleDateString("en-LK", { timeZone: "Asia/Colombo" })}
                       </p>
                     </div>
                     <div className="mt-1 flex gap-0.5">
@@ -137,7 +102,11 @@ export default function ProductReviewsPage() {
               )}
             </div>
           </div>
-        )}
+        {totalPages > 1 && <nav aria-label="Review pages" className="mt-6 flex justify-center gap-6 text-sm text-blue-600">
+          {page > 1 && <Link href={`/products/${productId}/reviews?page=${page - 1}`}>Previous</Link>}
+          <span className="text-slate-600">Page {page} of {totalPages}</span>
+          {page < totalPages && <Link href={`/products/${productId}/reviews?page=${page + 1}`}>Next</Link>}
+        </nav>}
       </main>
 
       <Footer />

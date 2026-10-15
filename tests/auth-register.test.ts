@@ -13,7 +13,7 @@ const validBody = {
   email: "nimal@example.com",
   phone: "0771234567",
   businessName: "Nimal's Crafts",
-  password: "Secret123",
+  password: "TestOnlySecret123!",
 };
 
 beforeEach(resetDatabase);
@@ -36,6 +36,27 @@ describe("POST /api/auth/register", () => {
     expect(user.passwordHash).not.toContain(validBody.password);
     expect(await verifyPassword(validBody.password, user.passwordHash)).toBe(true);
     expect(await prisma.notification.count({ where: { userId: admin.id } })).toBe(1);
+  });
+
+  it("rolls back the application when its notification cannot be saved", async () => {
+    const admin = await createAdmin();
+    // Simulate a real database failure without mocking away persistence.
+    await prisma.$executeRaw`CREATE FUNCTION test_reject_registration_notification() RETURNS trigger AS $$
+      BEGIN RAISE EXCEPTION 'Simulated notification failure'; END;
+      $$ LANGUAGE plpgsql`;
+    await prisma.$executeRaw`CREATE TRIGGER test_registration_notification
+      BEFORE INSERT ON "Notification" FOR EACH ROW
+      WHEN (NEW.type = 'REGISTRATION') EXECUTE FUNCTION test_reject_registration_notification()`;
+    try {
+      expect((await register(validBody)).status).toBe(500);
+      expect(await prisma.user.count({ where: { email: validBody.email } })).toBe(0);
+      expect(await prisma.entrepreneurProfile.count()).toBe(0);
+      expect(await prisma.business.count()).toBe(0);
+      expect(await prisma.notification.count({ where: { userId: admin.id } })).toBe(0);
+    } finally {
+      await prisma.$executeRaw`DROP TRIGGER test_registration_notification ON "Notification"`;
+      await prisma.$executeRaw`DROP FUNCTION test_reject_registration_notification()`;
+    }
   });
 
   it("never returns the password hash", async () => {

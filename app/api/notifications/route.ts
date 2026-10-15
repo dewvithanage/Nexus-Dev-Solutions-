@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { handleRouteError, jsonError } from "@/lib/api-auth";
 import { parseSearchParams } from "@/lib/request-validation";
-
-const MAX_NOTIFICATIONS = 100;
+import { getNotificationsFor } from "@/lib/admin/content";
 
 const listQuerySchema = z.object({
   type: z.string().trim().regex(/^[A-Z_]{1,40}$/, "Invalid notification type.").optional(),
@@ -22,19 +21,7 @@ export async function GET(request: NextRequest) {
     if (query.error) return query.error;
     const { type } = query.data;
 
-    const notifications = await prisma.notification.findMany({
-      where: { userId: user.id, ...(type && { type }) },
-      orderBy: { createdAt: "desc" },
-      take: MAX_NOTIFICATIONS,
-    });
-
-    const unreadCounts = await prisma.notification.groupBy({
-      by: ["type"],
-      where: { userId: user.id, isRead: false },
-      _count: true,
-    });
-
-    return NextResponse.json({ notifications, unreadCounts });
+    return NextResponse.json(await getNotificationsFor(user.id, type));
   } catch (error) {
     return handleRouteError(error, "Get notifications error", { fallback: "Unable to load notifications." });
   }

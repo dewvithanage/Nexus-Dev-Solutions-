@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { SALES_TOTALS_TAG } from "@/lib/admin/cache-tags";
 import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
 
 const flagSchema = z.object({ notes: optionalText(1000, "Notes") }).strict();
@@ -69,6 +71,9 @@ export async function PATCH(
       });
       return result;
     });
+
+    // Reports and Rankings count verified sales; show the change straight away.
+    revalidateTag(SALES_TOTALS_TAG);
 
     return NextResponse.json({ message: "Order flagged for review.", order: updated });
   } catch (error) {

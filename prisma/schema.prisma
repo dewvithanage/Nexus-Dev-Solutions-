@@ -186,6 +186,8 @@ model Product {
   @@index([status])
   @@index([categoryId])
   @@index([businessId])
+  @@index([businessId, status, createdAt])
+
 }
 
 model ProductImage {
@@ -227,6 +229,9 @@ model Order {
 
   @@index([businessId])
   @@index([status])
+  @@index([businessId, status, createdAt])
+  @@index([businessId, createdAt])
+
 }
 
 model OrderItem {
@@ -274,6 +279,8 @@ model Review {
   createdAt    DateTime @default(now())
 
   @@index([productId])
+  @@index([productId, createdAt, id])
+
 }
 
 // 
@@ -297,6 +304,8 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
+
 }
 
 // 
@@ -313,6 +322,8 @@ model GalleryItem {
   uploadedBy   User @relation("GalleryUploadedBy", fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
+  @@index([createdAt, id])
+
 }
 
 model ContentBlock {
