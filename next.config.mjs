@@ -50,7 +50,13 @@ const nextConfig = {
   // the reports fail on Vercel.
   serverExternalPackages: ["pdfkit"],
   outputFileTracingIncludes: {
-    "/api/admin/reports/**": ["./node_modules/pdfkit/js/data/**/*"],
+    // pdfkit loads its built-in fonts by name at runtime ("#standard-fonts/...",
+    // mapped in its package.json), so the file tracer can't see them.
+    "/api/admin/reports/**": [
+      "./node_modules/pdfkit/package.json",
+      "./node_modules/pdfkit/js/standard-fonts/**/*",
+      "./node_modules/pdfkit/js/data/**/*",
+    ],
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
