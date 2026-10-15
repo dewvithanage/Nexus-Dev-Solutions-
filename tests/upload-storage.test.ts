@@ -21,6 +21,8 @@ beforeEach(() => {
 
 afterEach(() => {
   delete process.env.BLOB_READ_WRITE_TOKEN;
+  delete process.env.BLOB_STORE_ID;
+  delete process.env.VERCEL;
 });
 
 describe("saveUploadedFile with Vercel Blob", () => {
@@ -39,6 +41,24 @@ describe("saveUploadedFile with Vercel Blob", () => {
     const big = new File([new Uint8Array(MAX_UPLOAD_BYTES + 1)], "big.png", { type: "image/png" });
     await expect(saveUploadedFile(big, "products")).rejects.toBeInstanceOf(UploadValidationError);
 
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it("also uses Blob for newer stores connected by store id (no read-write token)", async () => {
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    process.env.BLOB_STORE_ID = "store_abc123";
+
+    const url = await saveUploadedFile(tinyPngFile(), "logos");
+
+    expect(url).toMatch(/^https:\/\/abc123\.public\.blob\.vercel-storage\.com\/uploads\/logos\//);
+    expect(put).toHaveBeenCalledTimes(1);
+  });
+
+  it("on Vercel without a Blob store, fails with a clear message instead of writing to disk", async () => {
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+    process.env.VERCEL = "1";
+
+    await expect(saveUploadedFile(tinyPngFile(), "logos")).rejects.toThrow(/Vercel Blob store/);
     expect(put).not.toHaveBeenCalled();
   });
 

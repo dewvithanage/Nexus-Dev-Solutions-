@@ -4,6 +4,8 @@
 // purely as "follow us" links, which is standard, accepted practice
 // for linking out to a brand's own platform.
 
+import Link from "next/link";
+
 function YouTubeIcon() {
   return (
     <svg viewBox="0 0 48 48" width="48" height="48">
@@ -169,8 +171,11 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-white/10 pt-6 text-xs text-slate-500">
-          © 2026 Startup Spark Inc.
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-slate-400">
+          <span>© 2026 Startup Spark Inc.</span>
+          <Link href="/privacy" className="hover:text-white">
+            Privacy Notice
+          </Link>
         </div>
       </div>
     </footer>

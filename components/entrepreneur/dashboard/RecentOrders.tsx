@@ -2,21 +2,16 @@ import Link from "next/link";
 
 import { prisma } from "@/lib/prisma";
 
-// The dashboard has already checked the session and passes in the signed-in
-// entrepreneur's own business id, so this shows only that business's orders
-// and doesn't look the session up a second (and third) time.
+// The dashboard passes the business ID only after its server session check.
 export default async function RecentOrders({ businessId }: { businessId: string }) {
   const recentOrders = await prisma.order.findMany({
     where: {
       businessId,
     },
 
-    include: {
-      items: {
-        include: {
-          product: { select: { name: true } },
-        },
-      },
+    select: {
+      id: true, buyerName: true, status: true,
+      items: { select: { quantity: true, product: { select: { name: true } } } },
     },
 
     orderBy: {

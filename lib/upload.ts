@@ -17,7 +17,7 @@ import crypto from "crypto";
 // - NAME: a random UUID, so uploads can't overwrite each other or guess paths.
 //
 // WHERE files are stored:
-// - On Vercel (BLOB_READ_WRITE_TOKEN is set): in Vercel Blob storage. Vercel
+// - On Vercel (a Blob store is connected): in Vercel Blob storage. Vercel
 //   doesn't keep files written while the site runs, so the disk can't be used.
 //   The URL returned is the file's https://...blob.vercel-storage.com address.
 // - Everywhere else (local development, tests): under public/uploads, served
@@ -32,8 +32,11 @@ const CONTENT_TYPES = { ".jpg": "image/jpeg", ".png": "image/png", ".webp": "ima
 // Our Blob store's files live on <store-id>.public.blob.vercel-storage.com.
 const BLOB_HOST = /^[a-z0-9]+\.public\.blob\.vercel-storage\.com$/i;
 
+// A connected Blob store shows up as BLOB_STORE_ID (newer stores: Vercel signs
+// the requests itself) or BLOB_READ_WRITE_TOKEN (older stores). The Blob SDK
+// handles both; we only need to know that one is there.
 function usesBlobStorage() {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
 }
 
 export class UploadValidationError extends Error {
@@ -110,6 +113,12 @@ export async function saveUploadedFile(file: File, subfolder: string): Promise<s
       addRandomSuffix: false,
     });
     return blob.url;
+  }
+
+  // On Vercel the disk is read-only; writing there would fail with a cryptic
+  // error. Say clearly what is missing instead (shown in the server logs).
+  if (process.env.VERCEL) {
+    throw new Error("Uploads need a Vercel Blob store: connect one under Storage in the Vercel project.");
   }
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads", subfolder);

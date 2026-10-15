@@ -1,61 +1,20 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { getOrderConfirmation } from "@/lib/dewmi-page-data";
 
-type OrderDetails = {
-  id: string;
-  totalAmount: number;
-  deliveryLocation: string;
-  entrepreneurName: string;
-  entrepreneurWhatsApp: string;
-  items: { productName: string; quantity: number; unitPrice: number }[];
-};
-
-// This page is where Shehani's checkout flow (Order Form → "Send Order via
-// WhatsApp") should redirect to after creating the Order in the database —
-// see Risk 5 in the architecture doc: the order must be saved BEFORE
-// redirecting here, since we can't know if the WhatsApp message is
-// actually sent.
-export default function OrderConfirmationPage() {
-  const params = useParams<{ orderId: string }>();
-  const [order, setOrder] = useState<OrderDetails | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadOrder() {
-      try {
-        // The secret token from checkout; without it the order can't be read.
-        const token = new URLSearchParams(window.location.search).get("token") ?? "";
-        const response = await fetch(
-          `/api/orders/${params.orderId}?token=${encodeURIComponent(token)}`
-        );
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.message || "Unable to load order.");
-          return;
-        }
-
-        setOrder(data.order);
-      } catch (error) {
-        console.error("Load order error:", error);
-        setError("Something went wrong loading your order.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadOrder();
-  }, [params.orderId]);
-
+export const dynamic = "force-dynamic";
+export const metadata = { title: "Order Confirmation | StartupSpark", robots: { index: false, follow: false }, referrer: "no-referrer" };
+export default async function OrderConfirmationPage({ params, searchParams }: {
+  params: Promise<{ orderId: string }>;
+  searchParams: Promise<{ token?: string | string[] }>;
+}) {
+  const [{ orderId }, query] = await Promise.all([params, searchParams]);
+  const order = await getOrderConfirmation(orderId, typeof query.token === "string" ? query.token : "");
+  if (!order) notFound();
   const firstItem = order?.items[0];
   const whatsAppMessage = order
     ? `Hi ${order.entrepreneurName}, I just placed an order (#${order.id.slice(-6)}) on StartupSpark for ${firstItem?.productName}${
@@ -68,25 +27,14 @@ export default function OrderConfirmationPage() {
       <Navbar />
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 items-center justify-center px-4 py-16">
-        {loading ? (
-          <p className="text-sm text-slate-500">Loading your order...</p>
-        ) : error || !order ? (
-          <div className="w-full rounded-xl border border-red-200 bg-white p-8 text-center shadow-sm">
-            <p className="text-sm text-red-600">{error || "Order not found."}</p>
-            <Link href="/marketplace" className="mt-4 inline-block text-sm font-semibold text-blue-600 hover:underline">
-              Back to Marketplace
-            </Link>
-          </div>
-        ) : (
           <div className="w-full rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
             <div className="flex flex-col items-center text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
                 <Check className="text-green-600" size={24} />
               </div>
-              <h1 className="mt-4 text-2xl font-bold text-slate-900">Order Sent Successfully!</h1>
+              <h1 className="mt-4 text-2xl font-bold text-slate-900">Order Saved Successfully!</h1>
               <p className="mt-2 max-w-sm text-sm text-slate-500">
-                Your order has been sent to <span className="font-semibold">{order.entrepreneurName}</span> via
-                WhatsApp. They will contact you shortly to confirm your order.
+                Your order is saved. Open WhatsApp below and send the message to <span className="font-semibold">{order.entrepreneurName}</span> to arrange payment and pickup.
               </p>
             </div>
 
@@ -132,7 +80,6 @@ export default function OrderConfirmationPage() {
               </a>
             </div>
           </div>
-        )}
       </main>
 
       <Footer />

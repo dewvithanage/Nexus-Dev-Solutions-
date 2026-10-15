@@ -14,6 +14,7 @@ const iconForType: Record<string, { icon: LucideIcon; style: string }> = {
 export default async function Notifications({ userId }: { userId: string }) {
   const notifications = await prisma.notification.findMany({
     where: { userId },
+    select: { id: true, type: true, title: true, message: true, isRead: true, createdAt: true },
     orderBy: { createdAt: "desc" },
     take: 3,
   });

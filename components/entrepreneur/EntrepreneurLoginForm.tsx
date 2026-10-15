@@ -34,6 +34,7 @@ export default function EntrepreneurLoginForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError("");
 
     if (!formData.email || !formData.password) {
@@ -49,7 +50,7 @@ export default function EntrepreneurLoginForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, email: formData.email.trim() }),
       });
 
       const data = await response.json();
@@ -64,6 +65,7 @@ export default function EntrepreneurLoginForm() {
       router.push(
         data.entrepreneur?.status === "APPROVED" ? "/entrepreneur/dashboard" : "/entrepreneur/application-status"
       );
+      router.refresh();
     } catch (error) {
       console.error("Login request error:", error);
       setError("Something went wrong. Please try again.");
@@ -77,6 +79,7 @@ export default function EntrepreneurLoginForm() {
       <Input
         label="Email"
         name="email"
+        autoComplete="username"
         type="email"
         value={formData.email}
         placeholder="Enter your email"
@@ -86,6 +89,7 @@ export default function EntrepreneurLoginForm() {
       <Input
         label="Password"
         name="password"
+        autoComplete="current-password"
         type="password"
         value={formData.password}
         placeholder="Enter your password"
@@ -93,10 +97,7 @@ export default function EntrepreneurLoginForm() {
       />
 
       <div className="flex items-center justify-between text-xs">
-        <label className="flex items-center gap-2 text-slate-600">
-          <input type="checkbox" />
-          Remember me
-        </label>
+        <span className="text-slate-600">Secure entrepreneur sign-in</span>
 
         <Link
           href="/entrepreneur/forgot-password"
@@ -106,9 +107,9 @@ export default function EntrepreneurLoginForm() {
         </Link>
       </div>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p role="alert" className="text-sm text-red-500">{error}</p>}
 
-      <Button type="submit">
+      <Button type="submit" disabled={loading} className="disabled:opacity-60">
         {loading ? "Logging in..." : "Login"}
       </Button>
     </form>
