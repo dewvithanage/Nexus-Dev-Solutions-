@@ -75,10 +75,6 @@ export default function OrderFormPage() {
 
       clearBusinessItems(params.businessId);
 
-      // The token proves this browser placed the order.
-      router.push(
-        `/order-confirmation/${data.orderId}?token=${data.accessToken}`
-      );
       // The token proves this browser placed the order; the confirmation
       // page can't be opened with the order id alone. A full page load (not
       // router.push) so that no analytics script from the storefront is still
