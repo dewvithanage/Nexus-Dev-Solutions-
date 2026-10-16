@@ -172,20 +172,40 @@ The existing tests (`admin-dashboard`, `admin-login`, `admin-entrepreneurs`,
 
 ### 6. Lighthouse (mobile, production URL)
 
-Reports: `docs/lighthouse/oshadhi/`. Target: Performance ≥ 80 and LCP < 2.5 s.
+Target: Performance ≥ 80 and LCP < 2.5 s.
 
-| # | Page | Perf before | Perf after | LCP before | LCP after |
-|---|---|---|---|---|---|
-| 27 | Admin Login | | | | |
-| 28 | Admin Dashboard | | | | |
-| 29 | Registration Approval | | | | |
-| 30 | Entrepreneur Details | | | | |
-| 31 | Entrepreneur Management | | | | |
-| 32 | Product Approval | | | | |
-| 33 | Admin Product Details | | | | |
-| 34 | Product Management | | | | |
+Both runs used `https://www.startupspark.shop` on 16 October 2026, Lighthouse's default
+mobile settings (emulated phone, throttled network), a fresh browser profile and the same
+admin account. **Before** is the version live before PR #105; **after** is the same pages once
+#105 was deployed and the index migration was applied. The detail pages used the same
+entrepreneur and the same product both times. Each page was run once, so scores can move a
+few points between runs. The finished-report URL was checked for every page, so none of
+them measured the login page instead.
 
-_To be filled in from the production reports._
+| # | Page | Perf before | Perf after | LCP before | LCP after | TBT before | TBT after |
+|---|---|---|---|---|---|---|---|
+| 27 | Admin Login | 92 | **95** | 1.7 s | 2.3 s | 325 ms | 199 ms |
+| 28 | Admin Dashboard | 90 | **95** | 2.7 s | 2.1 s | 300 ms | 231 ms |
+| 29 | Registration Approval | 82 | **93** | 3.1 s | 2.0 s | 441 ms | 292 ms |
+| 30 | Entrepreneur Details | 87 | **97** | 2.9 s | 2.1 s | 319 ms | 173 ms |
+| 31 | Entrepreneur Management | 73 | **88** | 3.3 s | 1.7 s | 836 ms | 463 ms |
+| 32 | Product Approval | 81 | **93** | 3.0 s | 2.3 s | 541 ms | 261 ms |
+| 33 | Admin Product Details | 76 | **96** | 3.3 s | 2.1 s | 664 ms | 185 ms |
+| 34 | Product Management | 62 | **99** | 3.3 s | 1.6 s | 6,326 ms | 79 ms |
+| | **Average** | **80** | **95** | | | | |
+
+- All eight pages now meet both targets (Performance 88–99, LCP 1.6–2.3 s). Before, three
+  pages were under 80 and only Admin Login had LCP under 2.5 s.
+- The biggest gain is Product Management (62 → 99): its blocking time fell from 6.3 s to
+  0.08 s because the list is now rendered on the server instead of built in the browser.
+- Admin Login's LCP went up from 1.7 s to 2.3 s in this single run but stays under the
+  target, and its score still rose.
+- Accessibility averaged 95 before and 99 after. SEO on pages 30 and 33 is 91 because they
+  have no meta description; admin pages are private and not indexed, so this has no effect.
+
+The HTML reports are not committed: the signed-in admin pages show applicants' personal
+details and order data in the report screenshots. They are kept by the page owner and
+submitted directly with the assessment.
 
 ---
 
