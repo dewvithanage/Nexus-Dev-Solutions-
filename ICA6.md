@@ -291,3 +291,256 @@ Gallery's 64 Performance score and 5.65-second LCP miss both targets. This updat
 Review baseline product: `/products/cmutt62c70001kr40aelhshyj` (Chocolate Cup Cake), an existing publicly listed product during measurement. No review was submitted.
 
 Scoped verification: 13 isolated server-rendering/query tests passed, TypeScript passed, and the scoped lint check passed without warnings. These tests use mocked database calls and verify that gallery/review data is present in server HTML. Live database behavior and the unapplied indexes still require the approved deployment/CI workflow.
+
+---
+
+## Shehani: public storefront, cart and checkout
+
+| Page | Route |
+|---|---|
+| Home | `/` |
+| Marketplace | `/marketplace` |
+| Search results | `/marketplace/search?q=` |
+| Categories | `/categories` |
+| Category details | `/categories/[slug]` |
+| Product details | `/products/[productId]` |
+| Shopping Cart | `/cart` |
+| Checkout (Order Form) | `/checkout/[businessId]` |
+
+### 1. Data fetching on the server
+
+**Before:** the six catalogue pages (Home, Marketplace, Search results, Categories, Category
+details, Product details) were whole-page Client Components (`"use client"`). The browser
+downloaded an empty page, ran the JavaScript, then called `/api/categories`,
+`/api/marketplace/products` or `/api/products/[id]` from `useEffect`. Visitors saw skeletons
+first and the products one extra round trip later.
+
+**Now:** each of these `page.tsx` files is an async Server Component. It calls a data function
+in `lib/public-queries.ts` directly (no HTTP request to our own API) and passes plain,
+serialisable data (prices and dates as strings) to the page or to a small Client Component.
+
+| Page | Data function | Client Component (interactive parts only) |
+|---|---|---|
+| Home | `getHomeCategories`, `getFeaturedProducts` | (none; product cards are server-rendered) |
+| Marketplace | `getHomeCategories` + `getMarketplaceProducts` (in parallel, `Promise.all`) | `MarketplaceClient`: category, price and sort filters, pagination |
+| Search results | `getSearchProducts` | (none) |
+| Categories | `getHomeCategories` | (none) |
+| Category details | `getCategoryWithProducts` | (none) |
+| Product details | `getProductDetails` (page and `generateMetadata`) | `ProductDetailsClient`: image gallery, quantity, Add to Cart, Buy Now |
+| Shopping Cart | (none: the cart is in the browser) | whole page |
+| Checkout | (none until the order is sent) | whole page |
+
+**Only public products.** Every query uses the shared `publicProductWhere` rule
+(`lib/public-visibility.ts`): a product appears only when it is approved **and** its seller's
+registration is approved. Rejecting a seller hides all their listings at once.
+
+**Only the fields the page needs.** Every query uses `select` or a limited `include`
+(first image, business name). Product details returns the seller's name, university and
+WhatsApp number, which the page shows, and never the seller's email, password hash, reset
+token or the admin's internal notes. Tests check this (section 5).
+
+**Limits.** The Marketplace loads one page (4 products) with `skip`/`take` and a real total.
+Search results and Category details return at most 48 products, with the real total shown.
+
+**Marketplace filters.** The first page comes from the server. When the visitor changes the
+category, price or sort, `MarketplaceClient` calls `/api/marketplace/products`. If they change
+a filter again before the answer arrives, the old request is cancelled (`AbortController`),
+so an old result can never replace a newer one.
+
+**Cart and Checkout.** Customers are guests with no account, so the cart is kept in the
+browser's `localStorage` (`lib/cart-context.tsx`) and never on the server. The checkout sends
+only product ids and quantities to `POST /api/orders`. The server takes prices from the
+database, checks every product is still public and belongs to that business, reserves stock
+in a transaction (two buyers can't both get the last item), and allows at most 10 orders per
+device per hour. The buyer then gets a secret token for the order confirmation page.
+
+### 2. Rendering and caching
+
+| Page | Rendering | Why |
+|---|---|---|
+| Home | Dynamic (`connection()`), sections streamed | Categories and Trending each load inside their own `<Suspense>`, so the hero and "How it works" appear at once. |
+| Marketplace | Cached page, `revalidate = 60` | Same first page for every visitor; refreshed at most every 60 s. |
+| Search results | Dynamic | Depends on `?q=`; results come from the 60-second data cache, keyed by the search text. |
+| Categories | Cached page, data refreshed every 60 s | Same for every visitor. |
+| Category details | Rendered on first visit per category, then cached for 60 s | Same for every visitor of that category. |
+| Product details | Rendered on first visit per product, `revalidate = 60` | Same for every visitor of that product. |
+| Shopping Cart | Static shell + client | The cart only exists in the visitor's browser. |
+| Checkout | Static shell + client | The form and summary come from the visitor's cart. |
+
+The rendering modes are taken from the code. Confirm them against the route table in the
+production build log.
+
+**Data cache.** Each query in `lib/public-queries.ts` is wrapped in `unstable_cache` for
+60 seconds, with the tags `categories` and `products`. Only public catalogue data is cached:
+the same for every visitor, with nothing private in it. Nothing from the cart, checkout or
+orders is cached.
+
+**Fresh data after a change.** When an admin approves, rejects or deletes a product or a
+seller, or moves a product to another category, the admin route calls
+`revalidatePath("/", "layout")` (`lib/admin/revalidate.ts`), so these pages are rebuilt on
+the next visit and don't wait for the 60 seconds to run out.
+
+**Retry.** The cloud database sometimes drops the first connection after being idle. Each
+query is tried once more after 0.8 s before it fails (`withRetry`).
+
+**Page titles.** Product details uses `generateMetadata` to show the product name in the tab
+("Desk Lamp | StartupSpark"), or "Product Not Found | StartupSpark".
+
+### 3. Loading, error and empty states
+
+| | Where | What it does |
+|---|---|---|
+| Loading | Home: `<Suspense>` skeletons; `app/categories/(list)/loading.tsx` | Grey blocks shaped like the category tiles and product cards appear first. The Categories skeleton is kept inside a route group so that it doesn't apply to Category details (see Not found). |
+| Loading (filters) | `MarketplaceClient` | "Loading products..." while new filter results load. |
+| Error | Home sections | Each section fails on its own ("Couldn't load categories right now…"); the rest of the page still shows. |
+| Error | Marketplace filters | "We couldn't load the products. Please check your connection and try again." with a **Try again** button. |
+| Error | Search results | "Unable to load search results. Please try again later." |
+| Error | `app/error.tsx` | "Something went wrong" with **Try again** and a link home. The real error is only logged. |
+| Not found | `notFound()` in Category details and Product details | Unknown categories and unknown, unapproved or hidden products show the 404 page, with a real HTTP 404 status. |
+| Empty | each list | e.g. "No trending products yet…", "No products match your filters.", "No products matched "x"…", "No approved products in this category yet.", "Your cart is feeling light". |
+| Form errors | Checkout | Missing fields, an empty cart and server errors (out of stock, too many orders) are shown in a `role="alert"` message above the button. The button says "Placing order..." while it waits. |
+
+### 4. Performance
+
+- **Server data, no extra round trip:** catalogue data is in the first HTML response.
+- **Streaming:** the Home page's two data sections stream in separately, so the hero image
+  (the largest element) doesn't wait for the database.
+- **`next/image`:** the Home hero loads with `priority` and `sizes="100vw"`. Product card
+  images are resized to their display size and lazy-loaded. The first Product details image
+  loads with `priority`, and thumbnails are 64 px. Cart thumbnails are 64 px.
+- **Parallel queries:** the Marketplace loads categories and products together, and the list
+  and its count run together (`Promise.all`).
+- **`lucide-react`** icons are imported one by one, so only the icons used are bundled.
+
+### 5. Tests
+
+Two test files (50 tests) run against a real PostgreSQL database:
+
+- `tests/public-pages.test.ts` (29 tests): Home categories and Trending; the Marketplace's
+  first page; the products API's visibility, category, price, search, sort and paging, and 400
+  for bad input; Search results (no term, case-insensitive matches, no results, term too
+  long); Categories and Category details (counts, empty states, 404 for an unknown slug);
+  Product details (props, page title, 404 for unknown / unapproved / hidden-seller products);
+  the product API never returns admin notes, the seller's email or password.
+- `tests/cart-checkout.test.ts` (21 tests): the Cart page groups items by business with the
+  right subtotals and checkout links; the Checkout page shows only that business's items
+  and total, with labelled required fields; `POST /api/orders` takes prices from the database,
+  reserves stock and notifies the seller, rolls back when stock runs out, refuses products
+  from another business or unapproved products, validates every field, and returns 429 after
+  10 orders an hour; the order confirmation needs the buyer's token.
+
+Run them with `npx vitest run tests/public-pages.test.ts tests/cart-checkout.test.ts`.
+
+### 6. Lighthouse (mobile, production URL)
+
+Reports: `docs/lighthouse/shehani/`. Target: Performance ≥ 80 and LCP < 2.5 s.
+
+| Page | Perf before | Perf after | LCP before | LCP after |
+|---|---|---|---|---|
+| Home | | | | |
+| Marketplace | | | | |
+| Search results | | | | |
+| Categories | | | | |
+| Category details | | | | |
+| Product details | | | | |
+| Shopping Cart | | | | |
+| Checkout | | | | |
+
+_To fill in: the scores from the production reports. If no report was taken before the
+changes went live, write "not measured" in the "before" columns instead of a number._
+
+---
+
+## Himasha: admin pages 35–42
+
+_Template: Himasha to fill in. Use the same parts as the sections above._
+
+| # | Page | Route |
+|---|---|---|
+| 35 | | |
+| 36 | | |
+| 37 | | |
+| 38 | | |
+| 39 | | |
+| 40 | | |
+| 41 | | |
+| 42 | | |
+
+### 1. Data fetching on the server
+
+_How each page loaded its data before, and how it loads now (Server Component, data function,
+which parts are still Client Components)._
+
+### 2. Rendering and caching
+
+_Static, dynamic or cached for each page, and why. How the pages show fresh data after a
+change._
+
+### 3. Loading, error and empty states
+
+_What the visitor sees while the page loads, when something fails, and when there is no
+data._
+
+### 4. Performance
+
+_Images, fonts, packages, database indexes and anything else changed for speed._
+
+### 5. Tests
+
+_Test files, how many tests, what they check, and how to run them._
+
+### 6. Lighthouse (mobile, production URL)
+
+Reports: `docs/lighthouse/himasha/`. Target: Performance ≥ 80 and LCP < 2.5 s.
+
+| # | Page | Perf before | Perf after | LCP before | LCP after |
+|---|---|---|---|---|---|
+| 35 | | | | | |
+| 36 | | | | | |
+| 37 | | | | | |
+| 38 | | | | | |
+| 39 | | | | | |
+| 40 | | | | | |
+| 41 | | | | | |
+| 42 | | | | | |
+
+---
+
+## Imesha's pages
+
+_Template: Imesha to fill in. Use the same parts as the sections above._
+
+| Page | Route |
+|---|---|
+| | |
+
+### 1. Data fetching on the server
+
+_How each page loaded its data before, and how it loads now (Server Component, data function,
+which parts are still Client Components)._
+
+### 2. Rendering and caching
+
+_Static, dynamic or cached for each page, and why. How the pages show fresh data after a
+change._
+
+### 3. Loading, error and empty states
+
+_What the visitor sees while the page loads, when something fails, and when there is no
+data._
+
+### 4. Performance
+
+_Images, fonts, packages, database indexes and anything else changed for speed._
+
+### 5. Tests
+
+_Test files, how many tests, what they check, and how to run them._
+
+### 6. Lighthouse (mobile, production URL)
+
+Reports: `docs/lighthouse/imesha/`. Target: Performance ≥ 80 and LCP < 2.5 s.
+
+| Page | Perf before | Perf after | LCP before | LCP after |
+|---|---|---|---|---|
+| | | | | |
