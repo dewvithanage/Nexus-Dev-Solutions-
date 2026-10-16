@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "./prisma";
 import { verifySessionToken } from "./auth";
@@ -12,7 +13,11 @@ export const SESSION_COOKIE_NAME = "startup_spark_session";
 // current one. Logout, a password reset or an admin rejecting the account
 // increases the user's sessionVersion (see signOutEverywhere), which makes
 // every token issued before that stop working, even copies of the cookie.
-export async function getCurrentUser() {
+//
+// Wrapped in React's cache(): while one page renders, its layout, page and
+// generateMetadata share a single session lookup instead of querying the
+// database once each. Each request still checks the session afresh.
+export const getCurrentUser = cache(async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -48,7 +53,7 @@ export async function getCurrentUser() {
 
   const { sessionVersion: _sessionVersion, ...rest } = user;
   return rest;
-}
+});
 
 // Ends every existing session for this user.
 export async function signOutEverywhere(userId: string) {

@@ -1,5 +1,7 @@
 import EntrepreneurRegisterForm from "@/components/entrepreneur/EntrepreneurRegisterForm";
 
+export const metadata = { title: "Entrepreneur Registration | StartupSpark" };
+
 export default function EntrepreneurRegisterPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#101b31] px-4 py-10">

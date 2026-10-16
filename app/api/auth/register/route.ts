@@ -64,56 +64,61 @@ export async function POST(request: NextRequest) {
 
     const passwordHash = await hashPassword(password);
 
-    const user = await prisma.user.create({
-      data: {
-        name: fullName,
-        email: normalizedEmail,
-        phone: phone || null,
-        passwordHash,
-        role: "ENTREPRENEUR",
+    // Persist the application and notifications together; a failed request
+    // must not leave an account behind that the applicant cannot resubmit.
+    const user = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name: fullName,
+          email: normalizedEmail,
+          phone: phone || null,
+          passwordHash,
+          role: "ENTREPRENEUR",
 
-        entrepreneurProfile: {
-          create: {
-            whatsappNumber: whatsappNumber || phone || "",
+          entrepreneurProfile: {
+            create: {
+              whatsappNumber: whatsappNumber || phone || "",
 
-            business: {
-              create: {
-                businessName: businessName || `${fullName}'s Business`,
+              business: {
+                create: {
+                  businessName: businessName || `${fullName}'s Business`,
+                },
               },
             },
           },
         },
-      },
 
-      include: {
-        entrepreneurProfile: {
-          include: {
-            business: true,
+        include: {
+          entrepreneurProfile: {
+            include: {
+              business: true,
+            },
           },
         },
-      },
-    });
-
-    // Notify every admin that a new registration needs review — this is
-    // what populates the "Registrations" tab on Admin Notifications.
-    const admins = await prisma.user.findMany({
-      where: { role: "ADMIN" },
-    });
-
-    if (admins.length > 0) {
-      await prisma.notification.createMany({
-        data: admins.map((admin) => ({
-          userId: admin.id,
-          type: "REGISTRATION",
-          title: "New Entrepreneur Registration",
-          message: `${fullName} (${
-            businessName || "unnamed business"
-          }) has applied and needs review.`,
-          relatedEntityType: "EntrepreneurProfile",
-          relatedEntityId: user.entrepreneurProfile?.id,
-        })),
       });
-    }
+
+      // Notify every admin that a new registration needs review — this is
+      // what populates the "Registrations" tab on Admin Notifications.
+      const admins = await tx.user.findMany({
+        where: { role: "ADMIN" },
+      });
+
+      if (admins.length > 0) {
+        await tx.notification.createMany({
+          data: admins.map((admin) => ({
+            userId: admin.id,
+            type: "REGISTRATION",
+            title: "New Entrepreneur Registration",
+            message: `${fullName} (${
+              businessName || "unnamed business"
+            }) has applied and needs review.`,
+            relatedEntityType: "EntrepreneurProfile",
+            relatedEntityId: user.entrepreneurProfile?.id,
+          })),
+        });
+      }
+      return user;
+    });
 
     return NextResponse.json(
       {

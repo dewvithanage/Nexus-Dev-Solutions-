@@ -107,7 +107,10 @@ model EntrepreneurProfile {
 
   business Business?
 
-  @@index([status])
+  // Registration Approval / Entrepreneur Management filter by status and
+  // sort newest first; the dashboard lists the latest applications.
+  @@index([status, appliedAt])
+  @@index([appliedAt])
 }
 
 model Business {
@@ -183,9 +186,14 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([status])
+  // Product Approval / Product Management filter by status and sort newest
+  // first; the dashboard lists the latest submissions.
+  @@index([status, createdAt])
+  @@index([createdAt])
   @@index([categoryId])
   @@index([businessId])
+  @@index([businessId, status, createdAt])
+
 }
 
 model ProductImage {
@@ -194,6 +202,9 @@ model ProductImage {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   url       String
   sortOrder Int     @default(0)
+
+  // Each product's images, in display order (first one = thumbnail).
+  @@index([productId, sortOrder])
 }
 
 // 
@@ -225,8 +236,12 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([businessId])
+  // Verified sales per business (Entrepreneur Management's Sales Volume).
+  @@index([businessId, status])
   @@index([status])
+  @@index([businessId, status, createdAt])
+  @@index([businessId, createdAt])
+
 }
 
 model OrderItem {
@@ -239,6 +254,11 @@ model OrderItem {
 
   quantity         Int
   unitPriceAtOrder Decimal @db.Decimal(10, 2)
+
+  // Sales count per product, and the "has it ever been ordered?" check
+  // before a product or entrepreneur can be deleted.
+  @@index([productId])
+  @@index([orderId])
 }
 
 model SalesConfirmation {
@@ -274,6 +294,8 @@ model Review {
   createdAt    DateTime @default(now())
 
   @@index([productId])
+  @@index([productId, createdAt, id])
+
 }
 
 // 
@@ -297,6 +319,8 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@index([userId, createdAt])
+
 }
 
 // 
@@ -313,6 +337,8 @@ model GalleryItem {
   uploadedBy   User @relation("GalleryUploadedBy", fields: [uploadedById], references: [id])
 
   createdAt DateTime @default(now())
+  @@index([createdAt, id])
+
 }
 
 model ContentBlock {
