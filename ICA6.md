@@ -194,8 +194,8 @@ them measured the login page instead.
 | 34 | Product Management | 62 | **99** | 3.3 s | 1.6 s | 6,326 ms | 79 ms |
 | | **Average** | **80** | **95** | | | | |
 
-- All eight pages now meet both targets (Performance 88–99, LCP 1.6–2.3 s). Before, four
-  pages were under 80 or close to it and only Admin Login had LCP under 2.5 s.
+- All eight pages now meet both targets (Performance 88–99, LCP 1.6–2.3 s). Before, three
+  pages were under 80 and only Admin Login had LCP under 2.5 s.
 - The biggest gain is Product Management (62 → 99): its blocking time fell from 6.3 s to
   0.08 s because the list is now rendered on the server instead of built in the browser.
 - Admin Login's LCP went up from 1.7 s to 2.3 s in this single run but stays under the
