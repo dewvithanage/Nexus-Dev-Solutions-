@@ -435,19 +435,30 @@ Run them with `npx vitest run tests/public-pages.test.ts tests/cart-checkout.tes
 
 Reports: `docs/lighthouse/shehani/`. Target: Performance ≥ 80 and LCP < 2.5 s.
 
-| Page | Perf before | Perf after | LCP before | LCP after |
-|---|---|---|---|---|
-| Home | | | | |
-| Marketplace | | | | |
-| Search results | | | | |
-| Categories | | | | |
-| Category details | | | | |
-| Product details | | | | |
-| Shopping Cart | | | | |
-| Checkout | | | | |
+All "after" runs used `https://www.startupspark.shop` on 16 October 2026, with Lighthouse
+12.6.1's default mobile settings (emulated phone, throttled network) in headless Chrome, a
+fresh browser profile for every run, and the Performance category only. Each page was run
+three times and the middle result kept. The finished-report URL was checked for every page.
 
-_To fill in: the scores from the production reports. If no report was taken before the
-changes went live, write "not measured" in the "before" columns instead of a number._
+| Page | Route measured | Perf before | Perf after | LCP before | LCP after | TBT after |
+|---|---|---|---|---|---|---|
+| Home | `/` | not measured | **82** | not measured | 2.8 s | 464 ms |
+| Marketplace | `/marketplace` | not measured | **89** | not measured | 2.8 s | 288 ms |
+| Search results | `/marketplace/search?q=cake` | not measured | **88** | not measured | 2.9 s | 314 ms |
+| Categories | `/categories` | not measured | **87** | not measured | 2.9 s | 357 ms |
+| Category details | `/categories/food-beverages` | not measured | **91** | not measured | 2.6 s | 252 ms |
+| Product details | `/products/cmv8ys8vm000ll3086sforbjz` | not measured | **92** | not measured | 2.9 s | 180 ms |
+| Shopping Cart | `/cart` (empty cart) | not measured | **95** | not measured | 2.5 s | 159 ms |
+| Checkout | `/checkout/cmv6uujdn0002krx44hds2cpc` (empty cart) | not measured | **90** | not measured | 2.7 s | 279 ms |
+| **Average** | | | **89** | | | |
+
+- **Before:** no reports were taken on production before these changes went live, so there
+  is nothing to compare against. No before scores are claimed.
+- **Performance:** all eight pages meet the target (82–95).
+- **LCP:** none of the eight pages meets the target yet (2.52–2.95 s; Shopping Cart is closest
+  at 2.52 s). This is the next thing to improve.
+- Home was the least steady page (71, 82 and 84 in its three runs) and Categories had one low
+  run (64, 87, 89), so single scores can move several points between runs.
 
 ---
 
