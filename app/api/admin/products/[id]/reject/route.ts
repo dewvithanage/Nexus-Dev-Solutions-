@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAfterModeration } from "@/lib/admin/revalidate";
 import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
 
 const rejectSchema = z
@@ -59,6 +60,8 @@ export async function PATCH(
 
       return updated;
     });
+
+    revalidateAfterModeration();
 
     return NextResponse.json({ message: "Product rejected.", product });
   } catch (error) {

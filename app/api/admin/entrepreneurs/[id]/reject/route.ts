@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAfterModeration } from "@/lib/admin/revalidate";
 import { idField, optionalText, parseOptionalJsonBody } from "@/lib/request-validation";
 import { sendApplicationRejectedEmail } from "@/lib/email";
 
@@ -73,6 +74,8 @@ export async function PATCH(
       emailSent = false;
       console.warn("Rejection email not sent:", error);
     }
+
+    revalidateAfterModeration();
 
     return NextResponse.json({
       message: emailSent

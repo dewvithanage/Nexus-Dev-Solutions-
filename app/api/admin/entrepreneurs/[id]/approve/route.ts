@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAfterModeration } from "@/lib/admin/revalidate";
 import { idField } from "@/lib/request-validation";
 import { sendApplicationApprovedEmail } from "@/lib/email";
 
@@ -60,6 +61,8 @@ export async function PATCH(
       emailSent = false;
       console.warn("Approval email not sent:", error);
     }
+
+    revalidateAfterModeration();
 
     return NextResponse.json({
       message: emailSent

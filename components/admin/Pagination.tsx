@@ -35,10 +35,11 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
   }
 
   return (
-    <div className="mt-5 flex items-center justify-center gap-1.5">
+    <nav aria-label="Pagination" className="mt-5 flex items-center justify-center gap-1.5">
       <button
         onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
+        aria-label="Previous page"
         className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronLeft size={15} />
@@ -53,6 +54,8 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
           <button
             key={pageNumber}
             onClick={() => onPageChange(pageNumber)}
+            aria-label={`Page ${pageNumber}`}
+            aria-current={pageNumber === currentPage ? "page" : undefined}
             className={`h-8 w-8 rounded-md text-xs font-semibold transition ${
               pageNumber === currentPage
                 ? "bg-blue-600 text-white"
@@ -67,10 +70,11 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
       <button
         onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
+        aria-label="Next page"
         className="flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 bg-white text-slate-500 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronRight size={15} />
       </button>
-    </div>
+    </nav>
   );
 }
