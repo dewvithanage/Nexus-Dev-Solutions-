@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { handleRouteError, jsonError, requireAdmin } from "@/lib/api-auth";
+import { revalidateAfterModeration } from "@/lib/admin/revalidate";
 import { idField } from "@/lib/request-validation";
 
 export async function PATCH(
@@ -50,6 +51,8 @@ export async function PATCH(
 
       return updated;
     });
+
+    revalidateAfterModeration();
 
     return NextResponse.json({ message: "Product approved and published.", product });
   } catch (error) {

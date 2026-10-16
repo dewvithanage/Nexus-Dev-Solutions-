@@ -10,6 +10,8 @@ type DashboardHeaderProps = {
   notificationsHref?: string;
   onSearch?: (value: string) => void;
   searchPlaceholder?: string;
+  // Starting text for the search box, e.g. a search kept in the page URL.
+  searchDefaultValue?: string;
 };
 
 export default function DashboardHeader({
@@ -17,6 +19,7 @@ export default function DashboardHeader({
   notificationsHref,
   onSearch,
   searchPlaceholder = "Search...",
+  searchDefaultValue,
 }: DashboardHeaderProps) {
   return (
     <header className="flex min-h-[46px] shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#E2E8F0] bg-white px-4 py-2 sm:px-5">
@@ -32,6 +35,8 @@ export default function DashboardHeader({
               />
               <input
                 type="search"
+                defaultValue={searchDefaultValue}
+                aria-label={searchPlaceholder}
                 onChange={(event) => onSearch(event.target.value)}
                 placeholder={searchPlaceholder}
                 className="h-8 w-44 rounded-md sm:w-56 border border-[#E2E8F0] bg-white pl-8 pr-3 text-[12px] text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-600"

@@ -67,7 +67,7 @@ export default function AdminDashboardBody({
         <section className="flex min-h-[110px] items-center rounded-xl bg-[#2d67e8] px-5 py-5 text-white sm:px-8">
           <div>
             <h2 className="text-[20px] font-bold">Welcome back, {adminName}!</h2>
-            <p className="mt-2 max-w-[650px] text-xs leading-5 text-blue-100">
+            <p className="mt-2 max-w-[650px] text-xs leading-5 text-white">
               {pendingApprovalsTotal > 0
                 ? `There are ${pendingApprovalsTotal} pending applications/products waiting for review.`
                 : "No pending approvals right now — all caught up!"}
@@ -95,7 +95,7 @@ export default function AdminDashboardBody({
               {pendingEntrepreneurs} regs + {pendingProducts} products
             </p>
             {pendingApprovalsTotal > 0 && (
-              <p className="mt-3 text-[10px] text-amber-500">◉ Admin action required</p>
+              <p className="mt-3 text-[10px] text-amber-700">◉ Admin action required</p>
             )}
           </div>
 
@@ -149,10 +149,10 @@ export default function AdminDashboardBody({
                           <span
                             className={`rounded-full px-3 py-1 text-[9px] font-medium ${
                               event.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-600"
+                                ? "bg-emerald-100 text-emerald-800"
                                 : event.status === "REJECTED"
-                                ? "bg-red-100 text-red-600"
-                                : "bg-amber-100 text-amber-600"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-amber-100 text-amber-800"
                             }`}
                           >
                             {event.status}
